@@ -12,7 +12,7 @@ using Zygote
     χ = 10
     model = Ising(Ni, Nj, β)
     M = atype.(model_tensor(model, Val(:bulk)))
-    alg = VUMPS(maxiter=100, miniter=1, verbosity=3, ifupdown=true)
+    alg = VUMPS(maxiter=100, miniter=1, verbosity=3, ifupdown=true, ifdownfromup = true)
     
     rt = @time VUMPSRuntime(M, χ, alg)
     rt = @time leading_boundary(rt, M, alg)

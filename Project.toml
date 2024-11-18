@@ -10,6 +10,7 @@ IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MKL = "33e6dc65-8f57-5167-99aa-e5a354878fb2"
 OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -18,6 +19,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 KrylovKit = "0.8.2"
+MKL = "0.7.0"
 Parameters = "0.12.3"
 Printf = "1.11.0"
 
