@@ -61,6 +61,14 @@ function ChainRulesCore.rrule(::typeof(lqpos), A::AbstractArray{T,2}) where {T}
     return (L, Q), back
 end
 
+function ChainRulesCore.rrule(::typeof(orth_for_ad), v)
+    function back(dv)
+        dv .-= dot(v, dv) * v
+        return NoTangent(), dv
+    end
+    return v, back
+end
+
 # """
 #     dAMmap!(Au, Ad, M, L, R, i)
 
