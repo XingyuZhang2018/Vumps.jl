@@ -14,9 +14,10 @@ end
 
 permute_fronttail(t::leg3) = permutedims(t, (3,2,1))
 permute_fronttail(t::leg4) = permutedims(t, (4,2,3,1))
+permute_fronttail(t::InnerProductVec) = RealVec(permute_fronttail(t.vec))
 
 orth_for_ad(v) = v
-function simple_eig(f, v; n=10)
+function simple_eig(f, v; n=20)
     λ = 0.0
     err = 1.0
     i = 0

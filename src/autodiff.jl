@@ -69,6 +69,78 @@ function ChainRulesCore.rrule(::typeof(orth_for_ad), v)
     return v, back
 end
 
+function ChainRulesCore.rrule(::Type{<:VUMPSRuntime}, AL, AR, C, FL, FR)
+    rt = VUMPSRuntime(AL, AR, C, FL, FR)
+    function back(∂rt)
+        ∂AL, ∂AR, ∂C, ∂FL, ∂FR = ∂rt.AL, ∂rt.AR, ∂rt.C, ∂rt.FL, ∂rt.FR
+        # project_AL!(∂AL, AL)
+        # project_AR!(∂AR, AR)
+        return NoTangent(), ∂AL, ∂AR, ∂C, ∂FL, ∂FR
+    end
+    return rt, back
+end
+
+
+function ChainRulesCore.rrule(::typeof(vumps_itr), rt::VUMPSRuntime, M, alg::VUMPS)
+    rt = vumps_itr(rt, M, alg)
+    function back(∂rt)
+        AL, AR = rt.AL, rt.AR
+        ∂AL, ∂AR, ∂C, ∂FL, ∂FR = ∂rt.AL, ∂rt.AR, ∂rt.C, ∂rt.FL, ∂rt.FR
+        ∂AL = project_AL(∂AL, AL)
+        ∂AR = project_AR(∂AR, AR)
+        ∂rt = VUMPSRuntime(∂AL, ∂AR, ∂C, ∂FL, ∂FR)
+        # ∂rt = (∂AL, ∂AR, ∂C, ∂FL, ∂FR)
+
+        _, vumps_itr_vjp = pullback(fix_gauge_vumps_step, rt, M, alg)
+        # _, vumps_itr_vjp = pullback(vumps_step_Hermitian, rt, M, alg)
+        function vjp_rt_rt(∂rto)
+            ∂AL, ∂AR = ∂rto.AL, ∂rto.AR
+            ∂AL = project_AL(∂AL, AL)
+            ∂AR = project_AR(∂AR, AR)
+            if ∂rto.AL[1] isa InnerProductVec
+                isnothing(∂AL) || (∂AL = [x.vec for x in ∂AL])
+                isnothing(∂AR) || (∂AR = [x.vec for x in ∂AR])
+            end
+            ∂rt = VUMPSRuntime(∂AL, ∂AR, ∂rto.C, ∂rto.FL, ∂rto.FR)
+            ∂rt = vumps_itr_vjp((∂rt, NoTangent()))[1]
+            if ∂rto.AL[1] isa InnerProductVec
+                isnothing(∂AL) || (∂AL = [RealVec(x) for x in ∂AL])
+                isnothing(∂AR) || (∂AR = [RealVec(x) for x in ∂AR])
+            end
+            ∂AL = project_AL(∂rt.AL, AL)
+            ∂AR = project_AR(∂rt.AR, AR)
+            ∂rt = VUMPSRuntime(∂AL, ∂AR, ∂rt.C, ∂rt.FL, ∂rt.FR)
+            return ∂rt
+        end
+        
+        ∂rt = vjp_rt_rt(∂rt)
+        f_map(∂rt) = ∂rt - vjp_rt_rt(∂rt)
+        ∂rtsum, info = reallinsolve(f_map, ∂rt, ∂rt, GMRES()) 
+        alg.verbosity >= 1 && info.converged == 0 && @info "vumps_itr: linsolve converged: $(info.converged)"
+
+        # ∂rtsum = deepcopy(∂rt)
+        # ∂rt = vjp_rt_rt(∂rt)
+        # ∂rtsum += ∂rt
+        # @show typeof(∂rt.FL) 
+        # ϵ = Inf
+        # for ix in 1:100
+        #     ∂rt = vjp_rt_rt(∂rt)
+        #     @show typeof(∂rt.FL) 
+        #     ∂rtsum += ∂rt
+        #     ϵ = norm(∂rt)
+        #     println("INFO vumps_pushback: $(ix) ϵ = ", ϵ)
+        #     (ϵ < 1e-12) && break 
+        # end
+
+        vjp_rt_M(∂rt) = vumps_itr_vjp((∂rt, nothing))[2]
+        ∂M = vjp_rt_M(∂rtsum)
+
+        return NoTangent(), NoTangent(), ∂M, NoTangent()
+    end
+    return rt, back
+end
+
+
 # """
 #     dAMmap!(Au, Ad, M, L, R, i)
 
@@ -119,7 +191,6 @@ end
 # end
 
 # function ChainRulesCore.rrule(::typeof(leftenv), ALu, ALd, M, FL; ifobs = false, kwargs...)
-#     @show 1111111
 #     λL, FL = leftenv(ALu, ALd, M, FL; ifobs, kwargs...)
 #     Ni = size(M, 1)
 #     function back((dλL, dFL))
@@ -129,7 +200,7 @@ end
 #         @inbounds for i = 1:Ni
 #             ir = ifobs ? Ni+1-i : mod1(i+1, Ni)
 #             dFL[i,:] .-= dot(FL[i,:], dFL[i,:]) * FL[i,:]
-#             ξL, info = linsolve(X -> ξLmap(ALu[i,:], ALd[ir,:], M[i,:], X), conj(dFL[i,:]), -λL[i], 1; maxiter = 100)
+#             ξL, info = linsolve(X -> ξLmap(ALu[i,:], ALd[ir,:], M[i,:], X), conj(dFL[i,:]), -λL[i], 1; maxiter = 1)
 #             info.converged == 0 && @warn "ad's linsolve not converge"
 #             ξL .= circshift(ξL, -1)
 #             dAMmap!(view(dALu,i,:), view(dALd,ir,:), view(dM,i,:), ALu[i,:], ALd[ir,:], M[i,:], FL[i,:], ξL)
@@ -166,7 +237,7 @@ end
 #         @inbounds for i = 1:Ni
 #             ir = ifobs ? Ni+1-i : mod1(i+1, Ni)
 #             dFR[i,:] .-= dot(FR[i,:], dFR[i,:]) * FR[i,:]
-#             ξR, info = linsolve(X -> ξRmap(ARu[i,:], ARd[ir,:], M[i,:], X), conj(dFR[i,:]), -λR[i], 1; maxiter = 100)
+#             ξR, info = linsolve(X -> ξRmap(ARu[i,:], ARd[ir,:], M[i,:], X), conj(dFR[i,:]), -λR[i], 1; maxiter = 1)
 #             info.converged == 0 && @warn "ad's linsolve not converge"
 #             ξR = circshift(ξR, 1)
 #             dAMmap!(view(dARu,i,:), view(dARd,ir,:), view(dM,i,:), ARu[i,:], ARd[ir,:], M[i,:], ξR, FR[i,:])
@@ -236,7 +307,7 @@ end
 #         dFR = zero(FR)
 #         @inbounds for j = 1:Nj
 #             dAC[:,j] .-= dot(AC[:,j], dAC[:,j]) * AC[:,j]
-#             ξAC, info = linsolve(X -> ξACmap(X, FL[:,j], FR[:,j], M[:,j]), conj(dAC[:,j]), -λAC[j], 1; maxiter = 100)
+#             ξAC, info = linsolve(X -> ξACmap(X, FL[:,j], FR[:,j], M[:,j]), conj(dAC[:,j]), -λAC[j], 1; maxiter = 1)
 #             info.converged == 0 && @warn "ad's linsolve not converge"
 #             ξAC = circshift(ξAC, -1)
 #             dFMmap!(view(dFL,:,j), view(dM,:,j), view(dFR,:,j), FL[:,j], M[:,j], FR[:,j], AC[:,j], ξAC)
@@ -296,7 +367,7 @@ end
 #         for j = 1:Nj
 #             jr = mod1(j + 1, Nj)
 #             dC[:,j] .-= dot(C[:,j], dC[:,j]) * C[:,j]
-#             ξC, info = linsolve(X -> ξCmap(X, FL[:,jr], FR[:,j]), conj(dC[:,j]), -λC[j], 1; maxiter = 100)
+#             ξC, info = linsolve(X -> ξCmap(X, FL[:,jr], FR[:,j]), conj(dC[:,j]), -λC[j], 1; maxiter = 1)
 #             info.converged == 0 && @warn "ad's linsolve not converge"
 #             ξC = circshift(ξC, -1)
 #             dFMmap!(view(dFL,:,jr), view(dFR,:,j), FL[:,jr], FR[:,j], C[:,j], ξC)

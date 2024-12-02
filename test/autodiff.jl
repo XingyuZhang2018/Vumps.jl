@@ -1,6 +1,7 @@
 using TeneT
 using TeneT: _arraytype
-using TeneT:qrpos,lqpos,left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm
+using TeneT: qrpos,lqpos,left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm
+using TeneT: vumps_step
 using ChainRulesCore
 using CUDA
 using LinearAlgebra
@@ -194,4 +195,61 @@ end
         return s
     end
     @test Zygote.gradient(foo1, M)[1] ≈ num_grad(foo1, M) atol = 1e-4
+end
+
+@testset "$(Ni)x$(Nj) fix_gauge_vumps_step backward with $atype" for Ni in 1:1, Nj in 1:1, atype = [Array]
+    Random.seed!(100)
+
+    alg = VUMPS(maxiter=200, miniter=100, verbosity=3, ifupdown=false)
+    χ = 3
+    β = 0.2
+    model = Ising(Ni, Nj, β)
+    M = atype.(model_tensor(model, Val(:bulk)))
+    rt = VUMPSRuntime(M, χ, alg)
+    rt = leading_boundary(rt, M, alg)
+
+    function energy(β)
+        model = Ising(Ni, Nj, β)
+        M = atype.(model_tensor(model, Val(:bulk)))
+        rt′, _ = fix_gauge_vumps_step(rt, M, alg)
+        env = VUMPSEnv(rt′, M)
+        return real(observable(env, model, Val(:energy)))
+    end
+    @test Zygote.gradient(energy, β)[1] ≈ num_grad(energy, β)
+end
+
+@testset "$(Ni)x$(Nj) ising backward with $atype" for Ni in 1:1, Nj in 1:1, atype = [Array]
+    Random.seed!(100)
+
+    alg = VUMPS(maxiter=100, miniter=50, verbosity=3, ifupdown=false)
+    χ = 10
+    β = 0.5
+    model = Ising(Ni, Nj, β)
+    M = atype.(model_tensor(model, Val(:bulk)))
+    rt = VUMPSRuntime(M, χ, alg)
+
+    function energy(β)
+        model = Ising(Ni, Nj, β)
+        M = atype.(model_tensor(model, Val(:bulk)))
+        rt′ = leading_boundary(rt, M, alg)
+        env = VUMPSEnv(rt′, M)
+        return real(observable(env, model, Val(:energy)))
+    end
+    # @test Zygote.gradient(energy, 0.5)[1] ≈ num_grad(energy, 0.5)
+    @show Zygote.gradient(energy, 0.5)[1]
+    # @show norm(Zygote.gradient(energy, 0.5)[1] - num_grad(energy, 0.5))
+end
+
+using KrylovKit
+@testset "reallinsolve" begin
+    Random.seed!(100)
+    A = [rand(ComplexF64, 3,3) for _ in 1:2]
+    b = [rand(ComplexF64, 3) for _ in 1:2]
+    x, info = reallinsolve(x->A .* x, b, b, GMRES())
+    @show x
+    @test norm(A .* x - b) < 1e-12
+
+    x, info = linsolve(x->A .* x, b, b, GMRES())
+    @show x
+    @test norm(A .* x - b) < 1e-12
 end
