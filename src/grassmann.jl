@@ -6,9 +6,9 @@
 project_AL(∂AL, AL) = project_AL!(deepcopy(∂AL), AL)
 function project_AL!(∂AL, AL)
     if ∂AL[1] isa InnerProductVec
-        [∂AL.vec .-= ein"deg,(abc,abg)->dec"(AL, ∂AL.vec, conj.(AL)) for (∂AL, AL) in zip(∂AL, AL)]
+        # ∂AL = [RealVec(∂AL.vec - ein"deg,(abc,abg)->dec"(AL, ∂AL.vec, conj.(AL))) for (∂AL, AL) in zip(∂AL, AL)]
         # @show 1111111
-        # [∂AL.vec .-= (s = real(ein"(abc,abg)->cg"(∂AL.vec, conj.(AL))); real(ein"deg,cg->dec"(AL, s))) for (∂AL, AL) in zip(∂AL, AL)]
+        ∂AL = [(s = real(ein"(abc,abg)->cg"(∂AL.vec, conj.(AL))); RealVec(ComplexF64.(real(∂AL.vec - real(ein"deg,cg->dec"(AL, s)))))) for (∂AL, AL) in zip(∂AL, AL)]
     else
         [∂AL .-= ein"deg,(abc,abg)->dec"(AL, ∂AL, conj.(AL)) for (∂AL, AL) in zip(∂AL, AL)]
         # [∂AL .-= (s = ein"(abc,abg)->cg"(∂AL, conj.(AL)); ein"deg,cg->dec"(AL, s)) for (∂AL, AL) in zip(∂AL, AL)]

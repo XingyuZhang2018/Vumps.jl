@@ -182,7 +182,7 @@ function RealVec(x::VUMPSRuntime)
     )
 end
 
-function -(x1::RealVec, x2::AbstractArray)
+function -(x1::InnerProductVec, x2::AbstractArray)
     return RealVec(x1.vec - x2)
 end
 

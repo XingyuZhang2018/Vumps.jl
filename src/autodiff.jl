@@ -113,10 +113,12 @@ function ChainRulesCore.rrule(::typeof(vumps_itr), rt::VUMPSRuntime, M, alg::VUM
             return ∂rt
         end
         
+        ∂rt0 = deepcopy(∂rt)
         ∂rt = vjp_rt_rt(∂rt)
         f_map(∂rt) = ∂rt - vjp_rt_rt(∂rt)
-        ∂rtsum, info = reallinsolve(f_map, ∂rt, ∂rt, GMRES()) 
+        ∂rtsum, info = linsolve(f_map, ∂rt, ∂rt; tol = 1e-10, maxiter = 1) 
         alg.verbosity >= 1 && info.converged == 0 && @info "vumps_itr: linsolve converged: $(info.converged)"
+        ∂rtsum = ∂rt0 + ∂rtsum
 
         # ∂rtsum = deepcopy(∂rt)
         # ∂rt = vjp_rt_rt(∂rt)
