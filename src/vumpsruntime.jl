@@ -146,30 +146,29 @@ function fix_gauge_vumps_step(rt::VUMPSRuntime, M, alg::VUMPS)
     ALu, ARu, Cu, FLu, FRu = rt.AL, rt.AR, rt.C, rt.FL, rt.FR
     ALd, ARd, Cd, FLd, FRd = rt′.AL, rt′.AR, rt′.C, rt′.FL, rt′.FR
 
-    _, σ = rightCenv(ARu, conj.(ARd); ifobs=false, verbosity=alg.verbosity) 
-    U, _ = Zygote.@ignore qrpos(σ[1])
-    AL_gauged = [ein"(ba,bcd),ed -> ace"(U, ALd, U') for ALd in ALd]
-    AR_gauged = [ein"(ba,bcd),ed -> ace"(U, ARd, U') for ARd in ARd]
-     C_gauged = [ein"(ba,bc),dc -> ad"(U, Cd, U') for Cd in Cd]
-    FL_gauged = [ein"(ba,bcd),ed -> ace"(U', FLd, U) for FLd in FLd]
-    FR_gauged = [ein"(ab,bcd),de -> ace"(U, FRd, U') for FRd in FRd]
+    # _, σ = rightCenv(ARu, conj.(ARd); ifobs=false, verbosity=alg.verbosity) 
+    # U, _ = Zygote.@ignore qrpos(σ[1])
+    # AL_gauged = [ein"(ba,bcd),ed -> ace"(U, ALd, U') for ALd in ALd]
+    # AR_gauged = [ein"(ba,bcd),ed -> ace"(U, ARd, U') for ARd in ARd]
+    #  C_gauged = [ein"(ba,bc),dc -> ad"(U, Cd, U') for Cd in Cd]
+    # FL_gauged = [ein"(ba,bcd),ed -> ace"(U', FLd, U) for FLd in FLd]
+    # FR_gauged = [ein"(ab,bcd),de -> ace"(U, FRd, U') for FRd in FRd]
 
-    # AL_gauged = ALd
-    # AR_gauged = ARd
-    # C_gauged = Cd   
-    # FL_gauged = FLd
-    # FR_gauged = FRd
+    AL_gauged = ALd
+    AR_gauged = ARd
+    C_gauged = Cd   
+    FL_gauged = FLd
+    FR_gauged = FRd
     λ1 = Zygote.@ignore [ALu ./ AL_gauged  for (AL_gauged, ALu) in zip(AL_gauged, ALu)]
     λ2 = Zygote.@ignore [ARu ./ AR_gauged  for (AR_gauged, ARu) in zip(AR_gauged, ARu)]
     λ3 = Zygote.@ignore [Cu ./ C_gauged for (C_gauged, Cu) in zip(C_gauged, Cu)] 
     λ4 = Zygote.@ignore [FLu ./ FL_gauged  for (FL_gauged, FLu) in zip(FL_gauged, FLu)]
     λ5 = Zygote.@ignore [FRu ./ FR_gauged  for (FR_gauged, FRu) in zip(FR_gauged, FRu)]
-    # @show λ1[1][1]
 
-    AL_gauged = [AL_gauged .* λ1[1] for (AL_gauged,λ1) in zip(AL_gauged,λ1)]
-    AR_gauged = [AR_gauged .* λ2[1] for (AR_gauged,λ2) in zip(AR_gauged,λ2)]
-    C_gauged = [C_gauged .* λ3[1] for (C_gauged,λ3) in zip(C_gauged,λ3)]
-    FL_gauged = [FL_gauged .* λ4[1] for (FL_gauged,λ4) in zip(FL_gauged,λ4)]
-    FR_gauged = [FR_gauged .* λ5[1] for (FR_gauged,λ5) in zip(FR_gauged,λ5)]
+    AL_gauged = [AL_gauged .* λ1 for (AL_gauged,λ1) in zip(AL_gauged,λ1)]
+    AR_gauged = [AR_gauged .* λ2 for (AR_gauged,λ2) in zip(AR_gauged,λ2)]
+    C_gauged = [C_gauged .* λ3 for (C_gauged,λ3) in zip(C_gauged,λ3)]
+    FL_gauged = [FL_gauged .* λ4 for (FL_gauged,λ4) in zip(FL_gauged,λ4)]
+    FR_gauged = [FR_gauged .* λ5 for (FR_gauged,λ5) in zip(FR_gauged,λ5)]
     return VUMPSRuntime(AL_gauged, AR_gauged, C_gauged, FL_gauged, FR_gauged), err
 end

@@ -520,11 +520,11 @@ function leftenv(ALu, ALd, M, FL=FLint(ALu,M); ifobs=false, verbosity=Defaults.v
     FL′ = Zygote.Buffer(FL)
     for i in 1:Ni
         ir = ifobs ? Ni + 1 - i : mod1(i + 1, Ni)
-        λLs, FLi1s, info = eigsolve(FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), 
-                                    FL[i,1], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian=false, kwargs...)
-        verbosity >= 1 && info.converged == 0 && @warn "leftenv not converged"
-        λL[i], FL′[i,1] = selectpos(λLs, FLi1s, Nj)
-        # λL[i], FL′[i,1] = simple_eig(FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), FL[i,1]; kwargs...)
+        # λLs, FLi1s, info = eigsolve(FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), 
+        #                             FL[i,1], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian=false, kwargs...)
+        # verbosity >= 1 && info.converged == 0 && @warn "leftenv not converged"
+        # λL[i], FL′[i,1] = selectpos(λLs, FLi1s, Nj)
+        λL[i], FL′[i,1] = simple_eig(FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), FL[i,1]; kwargs...)
         for j in 2:Nj
             FL′[i,j] = FLmap(FL′[i,j-1], ALu[i,j-1], ALd[ir,j-1],  M[i,j-1])
         end
@@ -552,11 +552,11 @@ function rightenv(ARu, ARd, M, FR=FRint(ARu,M); ifobs=false, verbosity=Defaults.
     FR′ = Zygote.Buffer(FR)
     for i in 1:Ni
         ir = ifobs ? Ni + 1 - i : mod1(i + 1, Ni)
-        λRs, FR1s, info = eigsolve(FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), 
-                                   FR[i,Nj], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
-        verbosity >= 1 && info.converged == 0 && @warn "rightenv not converged"
-        λR[i], FR′[i,Nj] = selectpos(λRs, FR1s, Nj)
-        # λR[i], FR′[i,Nj] = simple_eig(FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), FR[i,Nj]; kwargs...)
+        # λRs, FR1s, info = eigsolve(FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), 
+        #                            FR[i,Nj], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
+        # verbosity >= 1 && info.converged == 0 && @warn "rightenv not converged"
+        # λR[i], FR′[i,Nj] = selectpos(λRs, FR1s, Nj)
+        λR[i], FR′[i,Nj] = simple_eig(FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), FR[i,Nj]; kwargs...)
         for j in Nj-1:-1:1
             FR′[i,j] = FRmap(FR′[i,j+1], ARu[i,j+1], ARd[ir,j+1], M[i,j+1])
         end
@@ -676,11 +676,11 @@ function ACenv(AC, FL, M, FR; verbosity=Defaults.verbosity, kwargs...)
     λAC = Zygote.Buffer(zeros(ComplexF64, Nj))
     AC′ = Zygote.Buffer(AC)
     for j in 1:Nj
-        λACs, ACs, info = eigsolve(AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), 
-                                   AC[1,j], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
-        verbosity >= 1 && info.converged == 0 && @warn "ACenv Not converged"
-        λAC[j], AC′[1,j] = selectpos(λACs, ACs, Ni)
-        # λAC[j], AC′[1,j] = simple_eig(AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), AC[1,j]; kwargs...)
+        # λACs, ACs, info = eigsolve(AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), 
+        #                            AC[1,j], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
+        # verbosity >= 1 && info.converged == 0 && @warn "ACenv Not converged"
+        # λAC[j], AC′[1,j] = selectpos(λACs, ACs, Ni)
+        λAC[j], AC′[1,j] = simple_eig(AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), AC[1,j]; kwargs...)
         for i in 2:Ni
             AC′[i,j] = ACmap(AC′[i-1,j], FL[i-1,j], FR[i-1,j], M[i-1,j])
         end
@@ -706,11 +706,11 @@ function Cenv(C, FL, FR; verbosity=Defaults.verbosity, kwargs...)
     C′ = Zygote.Buffer(C)
     for j in 1:Nj
         jr = mod1(j + 1, Nj)
-        λCs, Cs, info = eigsolve(C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), 
-                                 C[1,j], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
-        verbosity >= 1 && info.converged == 0 && @warn "Cenv Not converged"
-        λC[j], C′[1,j] = selectpos(λCs, Cs, Ni)
-        # λC[j], C′[1,j] = simple_eig(C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), C[1,j]; kwargs...)
+        # λCs, Cs, info = eigsolve(C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), 
+        #                          C[1,j], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
+        # verbosity >= 1 && info.converged == 0 && @warn "Cenv Not converged"
+        # λC[j], C′[1,j] = selectpos(λCs, Cs, Ni)
+        λC[j], C′[1,j] = simple_eig(C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), C[1,j]; kwargs...)
         for i in 2:Ni
             C′[i,j] = Cmap(C′[i-1,j], FL[i-1,jr], FR[i-1,j])
         end
