@@ -10,7 +10,7 @@ function project_AL!(∂AL, AL)
         # @show 1111111
         ∂AL = [(s = real(ein"(abc,abg)->cg"(∂AL.vec, conj.(AL))); RealVec(ComplexF64.(real(∂AL.vec - real(ein"deg,cg->dec"(AL, s)))))) for (∂AL, AL) in zip(∂AL, AL)]
     else
-        [∂AL isa AbstractZero ? nothing : (∂AL .-= ein"deg,(abc,abg)->dec"(AL, ∂AL, conj.(AL))) for (∂AL, AL) in zip(∂AL, AL)]
+        [∂AL isa AbstractZero || (∂AL .-= ein"deg,(abc,abg)->dec"(AL, ∂AL, conj.(AL))) for (∂AL, AL) in zip(∂AL, AL)]
     end
     return ∂AL
 end

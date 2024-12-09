@@ -36,6 +36,6 @@ end
         env = VUMPSEnv(rt, M)
         return log(real(observable(env, model, Val(:Z))))
     end
-    @show Zygote.gradient(β->-logZ(β), 0.5)
-    # @test Zygote.gradient(β->-logZ(β), 0.5)[1] ≈ -1.745564581767667
+    # @show Zygote.gradient(β->-logZ(β), 0.5)
+    @test Zygote.gradient(β->-logZ(β), 0.5)[1] ≈ -1.745564581767667
 end

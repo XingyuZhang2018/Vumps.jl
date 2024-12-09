@@ -235,8 +235,8 @@ end
         env = VUMPSEnv(rt′, M)
         return real(observable(env, model, Val(:energy)))
     end
-    # @test Zygote.gradient(energy, 0.3)[1] ≈ num_grad(energy, 0.3)
-    @show Zygote.gradient(energy, 0.3)[1]
+    @test Zygote.gradient(energy, 0.5)[1] ≈ num_grad(energy, 0.5)
+    # @show Zygote.gradient(energy, 0.3)[1]
     # @show norm(Zygote.gradient(energy, 0.5)[1] - num_grad(energy, 0.5))
 end
 

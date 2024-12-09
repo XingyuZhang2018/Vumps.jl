@@ -11,7 +11,7 @@ using ChainRulesCore
 
 import Base: +, -, *, getindex
 import LinearAlgebra: norm,  mul!
-import VectorInterface: inner, scale, scale!!, scalartype, zerovector
+import VectorInterface: inner, scale, scale!!, scalartype, zerovector, add!!
 # import KrylovKit: RealVec
 export VUMPS, VUMPSRuntime, VUMPSEnv
 export leading_boundary
