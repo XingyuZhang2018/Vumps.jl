@@ -14,9 +14,11 @@ end
 
 permute_fronttail(t::leg3) = permutedims(t, (3,2,1))
 permute_fronttail(t::leg4) = permutedims(t, (4,2,3,1))
+permute_fronttail(t::InnerProductVec) = RealVec(permute_fronttail(t.vec))
+permute_fronttail(t::AbstractZero) = t
 
 orth_for_ad(v) = v
-function simple_eig(f, v; n=10)
+function simple_eig(f, v; n=20)
     λ = 0.0
     err = 1.0
     i = 0
@@ -38,3 +40,15 @@ function simple_eig(f, v; n=10)
 
     return λ[1], v
 end
+
+function mcform(M)
+    aM = Array(M)
+    x = ein"ijil->jl"(aM)
+    _, vh = Zygote.@ignore eigen(x)
+    aM = ein"aj,(ijkl,lb)->iakb"(inv(vh),aM,vh)
+    y = ein"ijkj->ik"(aM)
+    _, vv = Zygote.@ignore eigen(y)
+    aM = ein"(ai,ijkl),kb->ajbl"(inv(vv),aM,vv)
+    aM = typeof(M)(aM)
+    return vh, vv, aM
+end    

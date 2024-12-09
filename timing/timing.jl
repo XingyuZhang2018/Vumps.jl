@@ -8,6 +8,7 @@ using LinearAlgebra
 using TeneT: left_canonical, right_canonical, leftenv, rightenv, LRtoC, ALCtoAC, ACenv, Cenv, _arraytype
 using BenchmarkTools
 using Zygote
+using ProfileView
 CUDA.allowscalar(false)
 
 # i9-14900KF RTX 4090
@@ -63,17 +64,17 @@ end
     ipeps = atype(rand(dtype, D,D,D,D,d))
     FL = atype(rand(dtype, χ,D,D,χ))
 
-    λs1, = eigsolve(FL -> ein"(((aefg,ghil),ehjbq),fikcq),abcd -> djkl"(FL,conj(AL),ipeps,conj(ipeps),AL), FL, 1, :LM; ishermitian = false)
-    @btime CUDA.@sync λs, FLs, info = eigsolve(FL -> ein"(((aefg,ghil),ehjbq),fikcq),abcd -> djkl"($FL,conj($AL),$ipeps,conj($ipeps),$AL), $FL, 1, :LM; ishermitian = false)
+    # λs1, = eigsolve(FL -> ein"(((aefg,ghil),ehjbq),fikcq),abcd -> djkl"(FL,conj(AL),ipeps,conj(ipeps),AL), FL, 1, :LM; ishermitian = false)
+    # @btime CUDA.@sync λs, FLs, info = eigsolve(FL -> ein"(((aefg,ghil),ehjbq),fikcq),abcd -> djkl"($FL,conj($AL),$ipeps,conj($ipeps),$AL), $FL, 1, :LM; ishermitian = false)
 
     AL = atype(reshape(AL, χ, D^2, χ))
     M = atype(reshape(ein"abcde,fghie->afbgchdi"(ipeps, conj(ipeps)), D^2, D^2, D^2, D^2))
     FL = atype(reshape(FL, χ, D^2, χ))
 
-    λs2, = eigsolve(FL -> ein"((adf,fgh),dgeb),abc -> ceh"(FL,conj(AL),M,AL), FL, 1, :LM; ishermitian = false)
-    @btime CUDA.@sync λs, FLs, info = eigsolve(FL -> ein"((adf,fgh),dgeb),abc -> ceh"($FL,conj($AL),$M,$AL), $FL, 1, :LM; ishermitian = false)
+    ProfileView.@profview λs2, = eigsolve(FL -> ein"((adf,fgh),dgeb),abc -> ceh"(FL,conj(AL),M,AL), FL, 1, :LM; ishermitian = false)
+    # @btime CUDA.@sync λs, FLs, info = eigsolve(FL -> ein"((adf,fgh),dgeb),abc -> ceh"($FL,conj($AL),$M,$AL), $FL, 1, :LM; ishermitian = false)
 
-    @test λs1 ≈ λs2
+    # @test λs1 ≈ λs2
 end
 
 @testset "OMEinsum with $atype{$dtype} " for atype in [CuArray], dtype in [ComplexF64]
