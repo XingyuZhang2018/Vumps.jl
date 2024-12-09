@@ -182,22 +182,22 @@ function RealVec(x::VUMPSRuntime)
     )
 end
 
-function -(x1::InnerProductVec, x2::AbstractArray)
-    return RealVec(x1.vec - x2)
-end
+# function -(x1::InnerProductVec, x2::AbstractArray)
+#     return RealVec(x1.vec - x2)
+# end
 
-function *(x::RealVec, α::Number)
-    return RealVec(x.vec * α)
-end
+# function *(x::RealVec, α::Number)
+#     return RealVec(x.vec * α)
+# end
 
-function Base.getindex(x::VUMPSRuntime) 
-    AL = isnothing(x.AL) ? nothing : [x.vec for x in x.AL]
-    AR = isnothing(x.AR) ? nothing : [x.vec for x in x.AR]
-    C  = isnothing(x.C)  ? nothing : [x.vec for x in x.C]
-    FL = isnothing(x.FL) ? nothing : [x.vec for x in x.FL]
-    FR = isnothing(x.FR) ? nothing : [x.vec for x in x.FR]
-    return VUMPSRuntime(AL, AR, C, FL, FR)
-end
+# function Base.getindex(x::VUMPSRuntime) 
+#     AL = isnothing(x.AL) ? nothing : [x.vec for x in x.AL]
+#     AR = isnothing(x.AR) ? nothing : [x.vec for x in x.AR]
+#     C  = isnothing(x.C)  ? nothing : [x.vec for x in x.C]
+#     FL = isnothing(x.FL) ? nothing : [x.vec for x in x.FL]
+#     FR = isnothing(x.FR) ? nothing : [x.vec for x in x.FR]
+#     return VUMPSRuntime(AL, AR, C, FL, FR)
+# end
 
 """
 tensor order graph: from left to right, top to bottom.
