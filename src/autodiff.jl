@@ -81,62 +81,62 @@ function ChainRulesCore.rrule(::Type{<:VUMPSRuntime}, AL, AR, C, FL, FR)
 end
 
 
-function ChainRulesCore.rrule(::typeof(vumps_itr), rt::VUMPSRuntime, M, alg::VUMPS)
-    rt = vumps_itr(rt, M, alg)
-    function back(∂rt)
-        AL, AR = rt.AL, rt.AR
-        ∂AL, ∂AR, ∂C, ∂FL, ∂FR = ∂rt.AL, ∂rt.AR, ∂rt.C, ∂rt.FL, ∂rt.FR
-        ∂AL = project_AL(∂AL, AL)
-        ∂AR = project_AR(∂AR, AR)
-        ∂rt0 = [∂AL, ∂AR, ∂C, ∂FL, ∂FR]
+# function ChainRulesCore.rrule(::typeof(vumps_itr), rt::VUMPSRuntime, M, alg::VUMPS)
+#     rt = vumps_itr(rt, M, alg)
+#     function back(∂rt)
+#         AL, AR = rt.AL, rt.AR
+#         ∂AL, ∂AR, ∂C, ∂FL, ∂FR = ∂rt.AL, ∂rt.AR, ∂rt.C, ∂rt.FL, ∂rt.FR
+#         ∂AL = project_AL(∂AL, AL)
+#         ∂AR = project_AR(∂AR, AR)
+#         ∂rt0 = [∂AL, ∂AR, ∂C, ∂FL, ∂FR]
 
-        _, vumps_itr_vjp = pullback(fix_gauge_vumps_step, rt, M, alg)
-        # _, vumps_itr_vjp = pullback(vumps_step_Hermitian, rt, M, alg)
-        function vjp_rt_rt(∂rt)
-            if length(∂rt) == 2
-                ∂AL, ∂AR = ∂rt
-                ∂AL = project_AL(∂AL, AL)
-                ∂AR = project_AR(∂AR, AR)
-                ∂rt = [∂AL, ∂AR, NoTangent(), NoTangent(), NoTangent()]
-            else
-                ∂AL, ∂AR, ∂C, ∂FL, ∂FR = ∂rt
-                ∂AL = project_AL(∂AL, AL)
-                ∂AR = project_AR(∂AR, AR)
-                ∂rt = [∂AL, ∂AR, ∂C, ∂FL, ∂FR]
-            end
-            ∂rt = vumps_itr_vjp((∂rt, NoTangent()))[1]
-            ∂AL = project_AL(∂rt.AL, AL)
-            ∂AR = project_AR(∂rt.AR, AR)
-            ∂rt = [∂AL, ∂AR]
-            return ∂rt
-        end
+#         _, vumps_itr_vjp = pullback(fix_gauge_vumps_step, rt, M, alg)
+#         # _, vumps_itr_vjp = pullback(vumps_step_Hermitian, rt, M, alg)
+#         function vjp_rt_rt(∂rt)
+#             if length(∂rt) == 2
+#                 ∂AL, ∂AR = ∂rt
+#                 ∂AL = project_AL(∂AL, AL)
+#                 ∂AR = project_AR(∂AR, AR)
+#                 ∂rt = [∂AL, ∂AR, NoTangent(), NoTangent(), NoTangent()]
+#             else
+#                 ∂AL, ∂AR, ∂C, ∂FL, ∂FR = ∂rt
+#                 ∂AL = project_AL(∂AL, AL)
+#                 ∂AR = project_AR(∂AR, AR)
+#                 ∂rt = [∂AL, ∂AR, ∂C, ∂FL, ∂FR]
+#             end
+#             ∂rt = vumps_itr_vjp((∂rt, NoTangent()))[1]
+#             ∂AL = project_AL(∂rt.AL, AL)
+#             ∂AR = project_AR(∂rt.AR, AR)
+#             ∂rt = [∂AL, ∂AR]
+#             return ∂rt
+#         end
         
-        ∂rt = vjp_rt_rt(∂rt0)
-        f_map(∂rt) = ∂rt - vjp_rt_rt(∂rt)
-        ∂rtsum, info = linsolve(f_map, ∂rt, ∂rt; tol = 1e-10, maxiter = 1) 
-        alg.verbosity >= 1 && info.converged == 0 && @warn "AD linsolve doesn't converge"
-        ∂rtsum = [∂rt0[1:2]+∂rtsum..., ∂C, ∂FL, ∂FR]
+#         ∂rt = vjp_rt_rt(∂rt0)
+#         f_map(∂rt) = ∂rt - vjp_rt_rt(∂rt)
+#         ∂rtsum, info = linsolve(f_map, ∂rt, ∂rt; tol = 1e-10, maxiter = 1) 
+#         alg.verbosity >= 1 && info.converged == 0 && @warn "AD linsolve doesn't converge"
+#         ∂rtsum = [∂rt0[1:2]+∂rtsum..., ∂C, ∂FL, ∂FR]
 
-        # ∂rtsum = deepcopy(∂rt0)
-        # ∂rt = vjp_rt_rt(∂rt0)
-        # ∂rtsum += ∂rt
-        # ϵ = Inf
-        # for ix in 1:100
-        #     ∂rt = vjp_rt_rt(∂rt)
-        #     ∂rtsum += ∂rt
-        #     ϵ = norm(∂rt)
-        #     println("INFO vumps_pushback: $(ix) ϵ = ", ϵ)
-        #     (ϵ < 1e-12) && break 
-        # end
-        # ∂rtsum = [∂rtsum..., ∂C, ∂FL, ∂FR]
+#         # ∂rtsum = deepcopy(∂rt0)
+#         # ∂rt = vjp_rt_rt(∂rt0)
+#         # ∂rtsum += ∂rt
+#         # ϵ = Inf
+#         # for ix in 1:100
+#         #     ∂rt = vjp_rt_rt(∂rt)
+#         #     ∂rtsum += ∂rt
+#         #     ϵ = norm(∂rt)
+#         #     println("INFO vumps_pushback: $(ix) ϵ = ", ϵ)
+#         #     (ϵ < 1e-12) && break 
+#         # end
+#         # ∂rtsum = [∂rtsum..., ∂C, ∂FL, ∂FR]
 
-        vjp_rt_M(∂rt) = vumps_itr_vjp((∂rt, NoTangent()))[2]
-        ∂M = vjp_rt_M(∂rtsum)
+#         vjp_rt_M(∂rt) = vumps_itr_vjp((∂rt, NoTangent()))[2]
+#         ∂M = vjp_rt_M(∂rtsum)
 
-        return NoTangent(), NoTangent(), ∂M, NoTangent()
-    end
-    return rt, back
-end
+#         return NoTangent(), NoTangent(), ∂M, NoTangent()
+#     end
+#     return rt, back
+# end
 
 
 # """

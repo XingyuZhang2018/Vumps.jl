@@ -9,9 +9,10 @@ using Printf
 using Parameters
 using ChainRulesCore
 
-import Base: +, -, *, getindex
+import Base: +, -, *, getindex, Array
 import LinearAlgebra: norm,  mul!
 import VectorInterface: inner, scale, scale!!, scalartype, zerovector, add!!
+import CUDA: CuArray
 # import KrylovKit: RealVec
 export VUMPS, VUMPSRuntime, VUMPSEnv
 export leading_boundary

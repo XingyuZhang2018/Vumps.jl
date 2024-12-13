@@ -83,6 +83,10 @@ function update!(env::VUMPSRuntime, env´::Tuple{VUMPSRuntime, VUMPSRuntime})
     return env
 end
 
+Array(rt::VUMPSRuntime) = VUMPSRuntime(Array.(rt.AL), Array.(rt.AR), Array.(rt.C), Array.(rt.FL), Array.(rt.FR))
+Array(rt::Tuple{VUMPSRuntime, VUMPSRuntime}) = Array.(rt)
+CuArray(rt::VUMPSRuntime) = VUMPSRuntime(CuArray.(rt.AL), CuArray.(rt.AR), CuArray.(rt.C), CuArray.(rt.FL), CuArray.(rt.FR))
+CuArray(rt::Tuple{VUMPSRuntime, VUMPSRuntime}) = CuArray.(rt)
 
 """
 tensor order graph: from left to right, top to bottom.

@@ -8,7 +8,7 @@ using ProfileView
 using Random
 using Zygote
 using KrylovKit
-using Krylov
+using Printf
 using OMEinsum
 
 CUDA.allowscalar(false)
@@ -95,4 +95,63 @@ end
     # @btime CUDA.@sync x, stats = bilq($A, $b)
     # ProfileView.@profview linsolve(X -> A * X, b; maxiter = 100)
     # x, stats = bilq(X -> A * X, b)
+end
+
+@testset "*" begin
+    D = 10^2
+    A = rand(D,D)
+    B = rand(D,D)
+    function foo1(A, B)
+        # C = similar(A)
+        ein"ab,bc->ac"(A, B)
+    end
+    @time foo1(A, B)
+
+    function foo2(A, B)
+        C = similar(A)
+        for i in 1:100
+            view(C, :,i) .= ein"ab,b->a"(A, view(B, :,i))
+        end
+        return C
+    end
+    @test foo1(A, B) ≈ foo2(A, B)
+
+    @time foo2(A, B)
+end
+
+@testset "FLmap" begin
+    function meminfo_julia()
+        # @printf "GC total:  %9.3f MiB\n" Base.gc_total_bytes(Base.gc_num())/2^20
+        # Total bytes (above) usually underreports, thus I suggest using live bytes (below)
+        @printf "GC live:   %9.3f MiB\n" Base.gc_live_bytes()/2^20
+        @printf "JIT:       %9.3f MiB\n" Base.jit_total_bytes()/2^20
+        @printf "Max. RSS:  %9.3f MiB\n" Sys.maxrss()/2^20
+    end
+
+    function FLmap1(FL, ALu, ALd, M)
+        ein"((adf,fgh),dgeb),abc -> ceh"(FL, ALd, M, ALu)
+    end
+
+    function FLmap2(FL, ALu, ALd, M)
+        FLo = similar(ALd)
+        for h in 1:size(ALd, 3)
+            FLo[:,:,h] = ein"((adf,fg),dgeb),abc -> ce"(FL, view(ALd, :,:,h), M, ALu)
+        end
+
+        return FLo
+    end
+
+    χ = 10
+    D = 2
+    FL = rand(ComplexF64, χ, D^2, χ)
+    ALu = rand(ComplexF64, χ, D^2, χ)
+    ALd = rand(ComplexF64, χ, D^2, χ)
+    M = rand(ComplexF64, D^2, D^2, D^2, D^2)
+    
+    # meminfo_julia()
+    # GC.gc()
+    @test FLmap1(FL, ALu, ALd, M) ≈ FLmap2(FL, ALu, ALd, M)
+
+    @time FLmap1(FL, ALu, ALd, M)
+    @time FLmap2(FL, ALu, ALd, M)
 end
