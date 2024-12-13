@@ -1,6 +1,7 @@
 @kwdef mutable struct VUMPS
     ifupdown::Bool = true
     ifdownfromup::Bool = false
+    ifsimple_eig::Bool = false
     tol::Float64 = Defaults.tol
     maxiter::Int = Defaults.maxiter
     miniter::Int = Defaults.miniter
@@ -112,15 +113,16 @@ end
 
 function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     verbosity = alg.verbosity
+    ifsimple_eig = alg.ifsimple_eig
     @unpack AL, C, AR, FL, FR = rt
     AC = ALCtoAC(AL,C)
-    _, ACp = ACenv(AC, FL, M, FR; verbosity)
-    _,  Cp =  Cenv( C, FL, FR; verbosity)
+    _, ACp = ACenv(AC, FL, M, FR; verbosity, ifsimple_eig)
+    _,  Cp =  Cenv( C, FL, FR; verbosity, ifsimple_eig)
     ALp, ARp, _, _ = ACCtoALAR(ACp, Cp)
-    _, FL =  leftenv(AL, conj.(ALp), M, FL; verbosity)
-    _, FR = rightenv(AR, conj.(ARp), M, FR; verbosity)
-    _, ACp = ACenv(ACp, FL, M, FR; verbosity)
-    _,  Cp =  Cenv( Cp, FL, FR; verbosity)
+    _, FL =  leftenv(AL, conj.(ALp), M, FL; verbosity, ifsimple_eig)
+    _, FR = rightenv(AR, conj.(ARp), M, FR; verbosity, ifsimple_eig)
+    _, ACp = ACenv(ACp, FL, M, FR; verbosity, ifsimple_eig)
+    _,  Cp =  Cenv( Cp, FL, FR; verbosity, ifsimple_eig)
     ALp, ARp, errL, errR = ACCtoALAR(ACp, Cp)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
@@ -129,12 +131,13 @@ end
 
 function vumps_step_Hermitian(rt::VUMPSRuntime, M, alg::VUMPS)
     verbosity = alg.verbosity
+    ifsimple_eig = alg.ifsimple_eig
     @unpack AL, C, AR, FL, FR = rt
     AC = ALCtoAC(AL,C)
-    _, FL =  leftenv(AL, conj.(AL), M, FL; verbosity)
-    _, FR = rightenv(AR, conj.(AR), M, FR; verbosity)
-    _, AC = ACenv(AC, FL, M, FR; verbosity)
-    _,  C =  Cenv( C, FL, FR; verbosity)
+    _, FL =  leftenv(AL, conj.(AL), M, FL; verbosity, ifsimple_eig)
+    _, FR = rightenv(AR, conj.(AR), M, FR; verbosity, ifsimple_eig)
+    _, AC = ACenv(AC, FL, M, FR; verbosity, ifsimple_eig)
+    _,  C =  Cenv( C, FL, FR; verbosity, ifsimple_eig)
     AL, AR, errL, errR = ACCtoALAR(AC, C)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
