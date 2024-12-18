@@ -221,7 +221,7 @@ end
 @testset "$(Ni)x$(Nj) ising backward with $atype" for Ni in 1:1, Nj in 1:1, atype = [Array]
     Random.seed!(100)
 
-    alg = VUMPS(maxiter=100, miniter=50, verbosity=3, ifupdown=false)
+    alg = VUMPS(maxiter=100, miniter=50, maxiter_ad=3, miniter_ad=3, verbosity=3, ifupdown=false)
     χ = 10
     β = 0.5
     model = Ising(Ni, Nj, β)

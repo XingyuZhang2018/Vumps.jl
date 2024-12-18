@@ -5,6 +5,8 @@
     tol::Float64 = Defaults.tol
     maxiter::Int = Defaults.maxiter
     miniter::Int = Defaults.miniter
+    maxiter_ad::Int = Defaults.maxiter_ad
+    miniter_ad::Int = Defaults.miniter_ad
     show_every::Int = 10
     verbosity::Int = Defaults.verbosity
 end
@@ -54,7 +56,9 @@ end
 
 function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
     t = Zygote.@ignore time()
-    for i in 1:alg.maxiter
+
+    Zygote.@ignore @info @sprintf("Start VUMPS iteration without AD...")
+    Zygote.@ignore for i in 1:alg.maxiter
         rt, err = vumps_step_power(rt, M, alg)
         alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
         if err < alg.tol && i >= alg.miniter
@@ -65,6 +69,20 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
             alg.verbosity >= 2 && Zygote.@ignore @warn @sprintf("VUMPS cancel@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
         end
     end
+
+    Zygote.@ignore @info @sprintf("Start VUMPS iteration with AD...")
+    for i in 1:alg.maxiter_ad
+        rt, err = vumps_step_power(rt, M, alg)
+        alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
+        if err < alg.tol && i >= alg.miniter_ad
+            alg.verbosity >= 2 && Zygote.@ignore @info @sprintf("VUMPS conv@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
+            break
+        end
+        if i == alg.maxiter_ad
+            alg.verbosity >= 2 && Zygote.@ignore @warn @sprintf("VUMPS cancel@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
+        end
+    end
+
     return rt
 end
 

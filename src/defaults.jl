@@ -8,5 +8,7 @@ module Defaults
     const verbosity = VERBOSE_WARN
     const maxiter = 10
     const miniter = 3
+    const maxiter_ad = 10
+    const miniter_ad = 3
     const tol = 1e-10
 end
