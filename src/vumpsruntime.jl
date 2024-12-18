@@ -57,7 +57,7 @@ end
 function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
     t = Zygote.@ignore time()
 
-    Zygote.@ignore @info @sprintf("Start VUMPS iteration without AD...")
+    Zygote.@ignore alg.verbosity >= 2 && @info @sprintf("Start VUMPS iteration without AD...")
     Zygote.@ignore for i in 1:alg.maxiter
         rt, err = vumps_step_power(rt, M, alg)
         alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
@@ -70,7 +70,7 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
         end
     end
 
-    Zygote.@ignore @info @sprintf("Start VUMPS iteration with AD...")
+    Zygote.@ignore alg.verbosity >= 2 && @info @sprintf("Start VUMPS iteration with AD...")
     for i in 1:alg.maxiter_ad
         rt, err = vumps_step_power(rt, M, alg)
         alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
