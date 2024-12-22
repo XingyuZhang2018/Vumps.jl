@@ -7,6 +7,7 @@
     miniter::Int = Defaults.miniter
     maxiter_ad::Int = Defaults.maxiter_ad
     miniter_ad::Int = Defaults.miniter_ad
+    ifcheckpoint::Bool = Defaults.ifcheckpoint
     show_every::Int = 10
     verbosity::Int = Defaults.verbosity
 end
@@ -130,17 +131,15 @@ function VUMPSEnv(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M)
 end
 
 function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
-    verbosity = alg.verbosity
-    ifsimple_eig = alg.ifsimple_eig
     @unpack AL, C, AR, FL, FR = rt
     AC = ALCtoAC(AL,C)
-    _, ACp = ACenv(AC, FL, M, FR; verbosity, ifsimple_eig)
-    _,  Cp =  Cenv( C, FL, FR; verbosity, ifsimple_eig)
+    _, ACp = ACenv(AC, FL, M, FR; alg)
+    _,  Cp =  Cenv( C, FL, FR; alg)
     ALp, ARp, _, _ = ACCtoALAR(ACp, Cp)
-    _, FL =  leftenv(AL, conj.(ALp), M, FL; verbosity, ifsimple_eig)
-    _, FR = rightenv(AR, conj.(ARp), M, FR; verbosity, ifsimple_eig)
-    _, ACp = ACenv(ACp, FL, M, FR; verbosity, ifsimple_eig)
-    _,  Cp =  Cenv( Cp, FL, FR; verbosity, ifsimple_eig)
+    _, FL =  leftenv(AL, conj.(ALp), M, FL; alg)
+    _, FR = rightenv(AR, conj.(ARp), M, FR; alg)
+    _, ACp = ACenv(ACp, FL, M, FR; alg)
+    _,  Cp =  Cenv( Cp, FL, FR; alg)
     ALp, ARp, errL, errR = ACCtoALAR(ACp, Cp)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
@@ -148,14 +147,12 @@ function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
 end
 
 function vumps_step_Hermitian(rt::VUMPSRuntime, M, alg::VUMPS)
-    verbosity = alg.verbosity
-    ifsimple_eig = alg.ifsimple_eig
     @unpack AL, C, AR, FL, FR = rt
     AC = ALCtoAC(AL,C)
-    _, FL =  leftenv(AL, conj.(AL), M, FL; verbosity, ifsimple_eig)
-    _, FR = rightenv(AR, conj.(AR), M, FR; verbosity, ifsimple_eig)
-    _, AC = ACenv(AC, FL, M, FR; verbosity, ifsimple_eig)
-    _,  C =  Cenv( C, FL, FR; verbosity, ifsimple_eig)
+    _, FL =  leftenv(AL, conj.(AL), M, FL; alg)
+    _, FR = rightenv(AR, conj.(AR), M, FR; alg)
+    _, AC = ACenv(AC, FL, M, FR; alg)
+    _,  C =  Cenv( C, FL, FR; alg)
     AL, AR, errL, errR = ACCtoALAR(AC, C)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
