@@ -12,12 +12,12 @@
     verbosity::Int = Defaults.verbosity
 end
 
-function VUMPSRuntime(M, χ::Int)
+function init_VUMPSRuntime(M, χ::Int, alg::VUMPS)
     A = initial_A(M, χ)
     AL, L, _ = left_canonical(A)
     R, AR, _ = right_canonical(AL)
-    _, FL = leftenv(AL, conj.(AL), M)
-    _, FR = rightenv(AR, conj.(AR), M)
+    _, FL = leftenv(AL, conj.(AL), M; alg)
+    _, FR = rightenv(AR, conj.(AR), M; alg)
     C = LRtoC(L, R)
     return VUMPSRuntime(AL, AR, C, FL, FR)
 end
@@ -37,7 +37,7 @@ end
 function VUMPSRuntime(M, χ::Int, alg::VUMPS)
     Ni, Nj = size(M)
 
-    rtup = VUMPSRuntime(M, χ)
+    rtup = init_VUMPSRuntime(M, χ, alg)
     alg.verbosity >= 2 && Zygote.@ignore @info "VUMPS init: cell=($(Ni)×$(Nj)) χ = $(χ) up(↑) environment"
 
     if alg.ifupdown     
@@ -46,7 +46,7 @@ function VUMPSRuntime(M, χ::Int, alg::VUMPS)
             return rtup
         else
             Md = _down_M(M)
-            rtdown = VUMPSRuntime(Md, χ)
+            rtdown = init_VUMPSRuntime(Md, χ, alg)
             alg.verbosity >= 2 && Zygote.@ignore @info "VUMPS init: cell=($(Ni)×$(Nj)) χ = $(χ) down(↓) environment"
             return rtup, rtdown
         end
@@ -98,11 +98,11 @@ function leading_boundary(rt::VUMPSRuntime, M, alg::VUMPS)
     end
 end
 
-function VUMPSEnv(rt::VUMPSRuntime, M::Matrix)
+function VUMPSEnv(rt::VUMPSRuntime, M::Matrix, alg::VUMPS)
     @unpack AL, AR, C, FL, FR = rt
     AC = ALCtoAC(AL, C)
-    _, FLo =  leftenv(AL, conj.(AL), M, FL; ifobs = true)
-    _, FRo = rightenv(AR, conj.(AR), M, FR; ifobs = true)
+    _, FLo =  leftenv(AL, conj.(AL), M, FL; ifobs = true, alg)
+    _, FRo = rightenv(AR, conj.(AR), M, FR; ifobs = true, alg)
     return VUMPSEnv(AC, AR, AC, AR, FL, FR, FLo, FRo)
 end
 
@@ -112,11 +112,15 @@ function leading_boundary(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M, alg::VUMPS)
     rtup = vumps_itr(rtup, M, alg)
 
     Md = _down_M(M)
-    rtdown = vumps_itr(rtdown, Md, alg)
+    if alg.ifdownfromup
+        rtdown = vumps_itr(rtup, Md, alg)
+    else
+        rtdown = vumps_itr(rtdown, Md, alg)
+    end
     return rtup, rtdown
 end
 
-function VUMPSEnv(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M)
+function VUMPSEnv(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M, alg)
     rtup, rtdown = rt
 
     ALu, ARu, Cu, FLu, FRu = rtup.AL, rtup.AR, rtup.C, rtup.FL, rtup.FR
@@ -125,8 +129,8 @@ function VUMPSEnv(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M)
     ALd, ARd, Cd = rtdown.AL, rtdown.AR, rtdown.C
     ACd = ALCtoAC(ALd, Cd)
 
-    _, FLo =  leftenv(ALu, conj.(ALd), M, FLu; ifobs = true)
-    _, FRo = rightenv(ARu, conj.(ARd), M, FRu; ifobs = true)
+    _, FLo =  leftenv(ALu, conj.(ALd), M, FLu; ifobs = true, alg)
+    _, FRo = rightenv(ARu, conj.(ARd), M, FRu; ifobs = true, alg)
     return VUMPSEnv(ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo)
 end
 

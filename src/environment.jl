@@ -403,14 +403,14 @@ FLᵢⱼ ─ Mᵢⱼ   ──   = λLᵢⱼ FLᵢⱼ₊₁
  └──  ALdᵢᵣⱼ  ─          └── 
 ```
 """
-function leftenv(ALu, ALd, M, FL=FLint(ALu,M); ifobs=false, params::VUMPS, kwargs...) 
+function leftenv(ALu, ALd, M, FL=FLint(ALu,M); ifobs=false, alg, kwargs...) 
     Ni, Nj = size(M)
     λL = Zygote.Buffer(zeros(ComplexF64, Ni))
     FL′ = Zygote.Buffer(FL)
     for i in 1:Ni
         ir = ifobs ? Ni + 1 - i : mod1(i + 1, Ni)
-        if params.ifsimple_eig
-            if params.ifcheckpoint
+        if alg.ifsimple_eig
+            if alg.ifcheckpoint
                 λL[i], FL′[i,1] = checkpoint(simple_eig, FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), FL[i,1])
             else
                 λL[i], FL′[i,1] = simple_eig(FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), FL[i,1])
@@ -418,7 +418,7 @@ function leftenv(ALu, ALd, M, FL=FLint(ALu,M); ifobs=false, params::VUMPS, kwarg
         else
             λLs, FLi1s, info = eigsolve(FLij -> FLmap(1, FLij, ALu[i,:], ALd[ir,:], M[i, :]), 
                                         FL[i,1], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian=false, kwargs...)
-            params.verbosity >= 1 && info.converged == 0 && @warn "leftenv not converged"
+            alg.verbosity >= 1 && info.converged == 0 && @warn "leftenv not converged"
             λL[i], FL′[i,1] = selectpos(λLs, FLi1s, Nj)
         end
         for j in 2:Nj
@@ -442,14 +442,14 @@ of AR - M - conj(AR) contracted along the physical dimension.
     ── ARdᵢᵣⱼ ──┘          ──┘  
 ```
 """
-function rightenv(ARu, ARd, M, FR=FRint(ARu,M); ifobs=false, params::VUMPS, kwargs...) 
+function rightenv(ARu, ARd, M, FR=FRint(ARu,M); ifobs=false, alg, kwargs...) 
     Ni,Nj = size(M)
     λR = Zygote.Buffer(zeros(ComplexF64, Ni))
     FR′ = Zygote.Buffer(FR)
     for i in 1:Ni
         ir = ifobs ? Ni + 1 - i : mod1(i + 1, Ni)
-        if params.ifsimple_eig
-            if params.checkpoint
+        if alg.ifsimple_eig
+            if alg.ifcheckpoint
                 λR[i], FR′[i,Nj] = checkpoint(simple_eig, FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), FR[i,Nj])
             else
                 λR[i], FR′[i,Nj] = simple_eig(FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), FR[i,Nj])
@@ -457,7 +457,7 @@ function rightenv(ARu, ARd, M, FR=FRint(ARu,M); ifobs=false, params::VUMPS, kwar
         else
             λRs, FR1s, info = eigsolve(FRiNj -> FRmap(Nj, FRiNj, ARu[i,:], ARd[ir,:], M[i,:]), 
                                     FR[i,Nj], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
-            params.verbosity >= 1 && info.converged == 0 && @warn "rightenv not converged"
+            alg.verbosity >= 1 && info.converged == 0 && @warn "rightenv not converged"
             λR[i], FR′[i,Nj] = selectpos(λRs, FR1s, Nj)
         end
         for j in Nj-1:-1:1
@@ -574,13 +574,13 @@ FLᵢⱼ ─── Mᵢⱼ ───── FRᵢⱼ               │      │  
 │        │         │   
 ```
 """
-function ACenv(AC, FL, M, FR; params::VUMPS, kwargs...)
+function ACenv(AC, FL, M, FR; alg, kwargs...)
     Ni, Nj = size(M)
     λAC = Zygote.Buffer(zeros(ComplexF64, Nj))
     AC′ = Zygote.Buffer(AC)
     for j in 1:Nj
-        if params.ifsimple_eig
-            if params.ifcheckpoint
+        if alg.ifsimple_eig
+            if alg.ifcheckpoint
                 λAC[j], AC′[1,j] = checkpoint(simple_eig, AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), AC[1,j])
             else
                 λAC[j], AC′[1,j] = simple_eig(AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), AC[1,j])
@@ -588,7 +588,7 @@ function ACenv(AC, FL, M, FR; params::VUMPS, kwargs...)
         else
             λACs, ACs, info = eigsolve(AC1j -> ACmap(1, AC1j, FL[:,j], FR[:,j], M[:,j]), 
                                     AC[1,j], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
-            params.verbosity >= 1 && info.converged == 0 && @warn "ACenv Not converged"
+            alg.verbosity >= 1 && info.converged == 0 && @warn "ACenv Not converged"
             λAC[j], AC′[1,j] = selectpos(λACs, ACs, Ni)
         end
         for i in 2:Ni
@@ -610,14 +610,14 @@ FLᵢⱼ₊₁ ──── FRᵢⱼ            │       │
 │           │   
 ```
 """
-function Cenv(C, FL, FR; params::VUMPS, kwargs...)
+function Cenv(C, FL, FR; alg, kwargs...)
     Ni, Nj = size(C)
     λC = Zygote.Buffer(zeros(ComplexF64, Nj))
     C′ = Zygote.Buffer(C)
     for j in 1:Nj
         jr = mod1(j + 1, Nj)
-        if params.ifsimple_eig
-            if params.ifcheckpoint
+        if alg.ifsimple_eig
+            if alg.ifcheckpoint
                 λC[j], C′[1,j] = checkpoint(simple_eig, C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), C[1,j])
             else
                 λC[j], C′[1,j] = simple_eig(C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), C[1,j])
@@ -625,7 +625,7 @@ function Cenv(C, FL, FR; params::VUMPS, kwargs...)
         else
             λCs, Cs, info = eigsolve(C1j -> Cmap(1, C1j, FL[:,jr], FR[:,j]), 
                                     C[1,j], 1, :LM; alg_rrule=GMRES(verbosity=-1), maxiter=100, ishermitian = false, kwargs...)
-            params.verbosity >= 1 && info.converged == 0 && @warn "Cenv Not converged"
+            alg.verbosity >= 1 && info.converged == 0 && @warn "Cenv Not converged"
             λC[j], C′[1,j] = selectpos(λCs, Cs, Ni)
         end
         for i in 2:Ni
