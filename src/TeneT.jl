@@ -1,13 +1,14 @@
 module TeneT
 
+using ChainRulesCore
 using CUDA
 using LinearAlgebra
 using KrylovKit
-using Zygote
 using OMEinsum
 using Printf
 using Parameters
-using ChainRulesCore
+using U1ArrayKit
+using Zygote
 
 import Base: +, -, *, getindex, Array
 import LinearAlgebra: norm,  mul!

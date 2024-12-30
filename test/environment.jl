@@ -1,18 +1,3 @@
-using TeneT
-using TeneT:qrpos,lqpos,left_canonical,right_canonical,leftenv,FLmap,rightenv,FRmap,ACenv,ACmap,Cenv,Cmap,LRtoC,ALCtoAC,ACCtoALAR,error, env_norm
-using TeneT:_to_front, _to_tail, permute_fronttail
-using CUDA
-using LinearAlgebra
-using Random
-using Test
-using OMEinsum
-CUDA.allowscalar(false)
-
-test_type = [Array]
-χ, D, d = 4, 3, 2
-test_As = [rand(ComplexF64, χ, D, χ), rand(ComplexF64, χ, D, D, χ)];
-test_Ms = [rand(ComplexF64, D, D, D, D), rand(ComplexF64, D, D, D, D, d)];
-
 @testset "qr with $atype{$dtype}" for atype in test_type, dtype in [Float64, ComplexF64]
     Random.seed!(100)
     A = atype(rand(dtype, 4,4))

@@ -182,6 +182,12 @@ function initial_A(M::leg5, χ::Int)
     return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
 end
 
+function initial_A(M::doublearray, χ::Int)
+    Ni, Nj = size(M)
+    atype = _arraytype(M[1])
+    return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
+end
+
 ρmap(ρ, Au::leg3, Ad::leg3) = ein"(dc,csb),dsa -> ab"(ρ,Au,Ad)
 ρmap(ρ, Au::leg4, Ad::leg4) = ein"(dc,cstb),dsta -> ab"(ρ,Au,Ad)
 

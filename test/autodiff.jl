@@ -1,35 +1,3 @@
-using TeneT
-using TeneT: _arraytype
-using TeneT: qrpos,lqpos,left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm, fix_gauge_vumps_step
-using TeneT: vumps_step
-using ChainRulesCore
-using CUDA
-using LinearAlgebra
-using OMEinsum
-using Random
-using Test
-using Zygote
-CUDA.allowscalar(false)
-
-begin "test utils"
-    function num_grad(f, K; δ::Real=1e-5)
-        if eltype(K) == ComplexF64
-            (f(K + δ / 2) - f(K - δ / 2)) / δ + 
-                (f(K + δ / 2 * 1.0im) - f(K - δ / 2 * 1.0im)) / δ * 1.0im
-        else
-            (f(K + δ / 2) - f(K - δ / 2)) / δ
-        end
-    end
-    
-    function num_grad(f, a::AbstractArray; δ::Real=1e-5)
-        b = Array(copy(a))
-        df = map(CartesianIndices(b)) do i
-            foo = x -> (ac = copy(b); ac[i] = x; f(_arraytype(a)(ac)))
-            num_grad(foo, b[i], δ=δ)
-        end
-        return _arraytype(a)(df)
-    end
-end
 
 @testset "zygote mutable arrays with $atype{$dtype}" for atype in [Array], dtype in [ComplexF64]
     Random.seed!(100)
