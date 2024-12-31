@@ -73,7 +73,7 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
 
     Zygote.@ignore alg.verbosity >= 2 && @info @sprintf("Start VUMPS iteration with AD...")
     for i in 1:alg.maxiter_ad
-        rt, err = vumps_step_power(rt, M, alg)
+        rt, err = alg.ifcheckpoint ? checkpoint(vumps_step_power, rt, M, alg) : vumps_step_power(rt, M, alg)
         alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
         if err < alg.tol && i >= alg.miniter_ad
             alg.verbosity >= 2 && Zygote.@ignore @info @sprintf("VUMPS conv@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
@@ -88,10 +88,10 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
 end
 
 function leading_boundary(rt::VUMPSRuntime, M, alg::VUMPS)
-    rtup = vumps_itr(rt, M, alg)
+    rtup = alg.ifcheckpoint ? checkpoint(vumps_itr, rt, M, alg) : vumps_itr(rt, M, alg)
     if alg.ifupdown && alg.ifdownfromup
         Md = _down_M(M)
-        rtdown = vumps_itr(rtup, Md, alg)
+        rtdown = alg.ifcheckpoint ? checkpoint(vumps_itr, rtup, Md, alg) : vumps_itr(rtup, Md, alg)
         return rtup, rtdown
     else
         return rtup
@@ -109,13 +109,13 @@ end
 function leading_boundary(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M, alg::VUMPS)
     rtup, rtdown = rt
     
-    rtup = vumps_itr(rtup, M, alg)
+    rtup = alg.ifcheckpoint ? checkpoint(vumps_itr, rtup, M, alg) : vumps_itr(rtup, M, alg)
 
     Md = _down_M(M)
     if alg.ifdownfromup
-        rtdown = vumps_itr(rtup, Md, alg)
+        rtdown = alg.ifcheckpoint ? checkpoint(vumps_itr, rtup, Md, alg) : vumps_itr(rtup, Md, alg)
     else
-        rtdown = vumps_itr(rtdown, Md, alg)
+        rtdown = alg.ifcheckpoint ? checkpoint(vumps_itr, rtdown, Md, alg) : vumps_itr(rtdown, Md, alg)
     end
     return rtup, rtdown
 end
