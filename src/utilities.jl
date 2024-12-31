@@ -25,7 +25,7 @@ function simple_eig(f, v; n=20)
     while err > 1e-12 && i < n
         Zygote.@ignore begin
             v = f(v)
-            v /= norm(v)
+            normalize!(v)
             CUDA.@allowscalar λ = Array(f(v)[1:2] ./ v[1:2])
             err = norm(λ[1] - λ[2])
             i += 1
