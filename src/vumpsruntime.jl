@@ -88,10 +88,10 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
 end
 
 function leading_boundary(rt::VUMPSRuntime, M, alg::VUMPS)
-    rtup = alg.ifcheckpoint ? checkpoint(vumps_itr, rt, M, alg) : vumps_itr(rt, M, alg)
+    rtup = vumps_itr(rt, M, alg)
     if alg.ifupdown && alg.ifdownfromup
         Md = _down_M(M)
-        rtdown = alg.ifcheckpoint ? checkpoint(vumps_itr, rtup, Md, alg) : vumps_itr(rtup, Md, alg)
+        rtdown = vumps_itr(rtup, Md, alg)
         return rtup, rtdown
     else
         return rtup
@@ -109,13 +109,13 @@ end
 function leading_boundary(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M, alg::VUMPS)
     rtup, rtdown = rt
     
-    rtup = alg.ifcheckpoint ? checkpoint(vumps_itr, rtup, M, alg) : vumps_itr(rtup, M, alg)
+    rtup = vumps_itr(rtup, M, alg)
 
     Md = _down_M(M)
     if alg.ifdownfromup
-        rtdown = alg.ifcheckpoint ? checkpoint(vumps_itr, rtup, Md, alg) : vumps_itr(rtup, Md, alg)
+        rtdown = vumps_itr(rtup, Md, alg)
     else
-        rtdown = alg.ifcheckpoint ? checkpoint(vumps_itr, rtdown, Md, alg) : vumps_itr(rtdown, Md, alg)
+        rtdown = vumps_itr(rtdown, Md, alg)
     end
     return rtup, rtdown
 end
