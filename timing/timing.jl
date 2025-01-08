@@ -5,7 +5,9 @@ using Test
 using OMEinsum
 using Random
 using LinearAlgebra
-using TeneT: left_canonical, right_canonical, leftenv, rightenv, LRtoC, ALCtoAC, ACenv, Cenv, _arraytype
+using TeneT
+using TeneT: left_canonical, right_canonical, leftenv, rightenv, LRtoC, ALCtoAC, ACenv, Cenv, _arraytype, FLmap
+using TeneT: simple_eig
 using BenchmarkTools
 using Zygote
 using ProfileView
@@ -22,7 +24,7 @@ CUDA.allowscalar(false)
 #   13.570 ms (762 allocations: 25.95 KiB)
 # Test Summary:                      | Pass  Total   Time
 # OMEinsum with CuArray{ComplexF64}  |    1      1  23.1s
-@testset "OMEinsum with $atype{$dtype} " for atype in [Array, CuArray], dtype in [ComplexF64]
+@testset "OMEinsum with $atype{$dtype} " for atype in [CuArray], dtype in [ComplexF64]
     Random.seed!(100)
     d, D, χ = 4, 6, 32
 
@@ -31,17 +33,46 @@ CUDA.allowscalar(false)
     ipeps = atype(rand(dtype, D,D,D,D,d))
     FL = atype(rand(dtype, χ,D,D,χ))
 
-    FL1 = ein"(((aefg,ghil),ehjbq),fikcq),abcd -> djkl"(FL,conj(AL),ipeps,conj(ipeps),AL)
-    @btime CUDA.@sync ein"(((aefg,ghil),ehjbq),fikcq),abcd -> djkl"($FL,conj($AL),$ipeps,conj($ipeps),$AL)
-    
-    AL = atype(reshape(AL, χ, D^2, χ))
-    M = atype(reshape(ein"abcde,fghie->afbgchdi"(ipeps, conj(ipeps)), D^2, D^2, D^2, D^2))
-    FL = atype(reshape(FL, χ, D^2, χ))
+    # FL1 = FLmap(FL, AL, conj(AL), ipeps)
+    # _, FLm1 = simple_eig(FL -> FLmap(FL, AL, conj(AL), ipeps), FL)
+    @btime CUDA.@sync FLmap($FL, $AL, conj($AL), $ipeps)
+    # @btime CUDA.@sync norm($FL)
+    @btime simple_eig(FL -> FLmap(FL, $AL, conj($AL), $ipeps), $FL)
 
-    FL2 = ein"((adf,fgh),dgeb),abc -> ceh"(FL,conj(AL),M,AL)
-    @btime CUDA.@sync ein"((adf,fgh),dgeb),abc -> ceh"($FL,conj($AL),$M,$AL)
+    AL = reshape(AL, χ, D^2, χ)
+    M  = reshape(ein"abcde,fghie->afbgchdi"(ipeps, conj(ipeps)), D^2, D^2, D^2, D^2)
+    FL = reshape(FL, χ, D^2, χ)
 
-    @test reshape(FL1, χ, D^2, χ) ≈ FL2
+    # FL2 = FLmap(FL, AL, conj(AL), M)
+    # _, FLm2 = simple_eig(FL -> FLmap(FL, AL, conj(AL), M), FL)
+    @btime CUDA.@sync FLmap($FL, $AL, conj($AL), $M)
+    # @btime CUDA.@sync norm($FL)
+    @btime simple_eig(FL -> FLmap(FL, $AL, conj($AL), $M), $FL)
+
+    # @test reshape(FL1, χ, D^2, χ) ≈ FL2
+    # @test reshape(FLm1, χ, D^2, χ) ≈ FLm2
+    # @btime simple_eig(FL -> FLmap(FL, $AL, conj($AL), $ipeps), $FL)
+
+end
+
+@testset "contraction orders" for atype in [CuArray], dtype in [ComplexF64]
+    Random.seed!(100)
+    d, D, χ = 4, 8, 80
+
+    println("d = $(d) D = $(D) χ = $(χ)")
+    AL = atype(rand(dtype, χ,D,D,χ))
+    ipeps = atype(rand(dtype, D,D,D,D,d))
+    FL = atype(rand(dtype, χ,D,D,χ))
+
+    # FRmap(FR, ARu, ARd, M::leg5) = ein"(((abcd,dghl),ejgbp),fkhcp),ijkl -> aefi"(ARu, FR, M, conj(M), ARd)
+    code = ein"aefi,ijkl,ejgbp,fkhcp,abcd -> dghl"
+    size_dict = OMEinsum.get_size_dict(getixsv(code), (FL, AL, ipeps, conj(ipeps), AL))
+    code = optimize_code(code, size_dict, TreeSA(nslices=0))
+    @show code contraction_complexity(code, size_dict)
+    # @btime CUDA.@sync $code($FL, $AL, $ipeps, conj($ipeps), $AL)
+
+    code = ein"(((aefi,ijkl),ejgb),fkhc),abcd -> dghl"
+    @btime CUDA.@sync sum([$code($FL, $AL, $ipeps[:,:,:,:,i], conj($ipeps[:,:,:,:,i]), $AL) for i in 1:$d])
 end
 
 # i9-14900KF RTX 4090
@@ -131,21 +162,23 @@ end
 #   298.098 ms (195699 allocations: 7.08 MiB)
 # Test Summary:                                       | Total   Time
 # leftenv and rightenv with CuArray{ComplexF64} 2 x 2 |     0  28.6s
-@testset "leftenv and rightenv with $atype{$dtype} $Ni x $Nj" for atype in [Array, CuArray], dtype in [ComplexF64], ifobs in [false], Ni in 2:2, Nj in 2:2
+@testset "leftenv and rightenv with $atype{$dtype} $Ni x $Nj" for atype in [CuArray], dtype in [ComplexF64], ifobs in [false], Ni in 2:2, Nj in 2:2
     Random.seed!(100)
-    # χ, D = 30, 16
-    # println("χ = $(χ) D = $(D) Ni = $(Ni) Nj = $(Nj)")
-    # A = [atype(rand(dtype, χ, D, χ)) for i in 1:Ni, j in 1:Nj]
-    # M = [atype(rand(dtype, D, D, D, D)) for i in 1:Ni, j in 1:Nj]
-    χ, D, d = 30, 4, 2
-    println("χ = $(χ) D = $(D) d = $(d) Ni = $(Ni) Nj = $(Nj)")
-    A = [atype(rand(dtype, χ, D, D, χ)) for i in 1:Ni, j in 1:Nj]
-    M = [atype(rand(dtype, D, D, D, D, d)) for i in 1:Ni, j in 1:Nj]
+    χ, D = 30, 16
+    println("χ = $(χ) D = $(D) Ni = $(Ni) Nj = $(Nj)")
+    A = [atype(rand(dtype, χ, D, χ)) for i in 1:Ni, j in 1:Nj]
+    M = [atype(rand(dtype, D, D, D, D)) for i in 1:Ni, j in 1:Nj]
+    # χ, D, d = 30, 4, 2
+    # println("χ = $(χ) D = $(D) d = $(d) Ni = $(Ni) Nj = $(Nj)")
+    # A = [atype(rand(dtype, χ, D, D, χ)) for i in 1:Ni, j in 1:Nj]
+    # M = [atype(rand(dtype, D, D, D, D, d)) for i in 1:Ni, j in 1:Nj]
 
+    alg = VUMPS(ifsimple_eig=true)
     AL,    =  left_canonical(A)
-    @btime λL,FL  =  leftenv($AL, conj($AL), $M; ifobs = $ifobs)
-    _, AR, = right_canonical(A)
-    @btime λR,FR  = rightenv($AR, conj($AR), $M; ifobs = $ifobs)
+    @time CUDA.@sync λL,FL  =  leftenv(AL, conj(AL), M; ifobs = ifobs, alg=alg)
+    # @btime λL,FL  =  leftenv($AL, conj($AL), $M; ifobs = $ifobs, alg=$alg)
+    # _, AR, = right_canonical(A)
+    # @btime λR,FR  = rightenv($AR, conj($AR), $M; ifobs = $ifobs, alg=$alg)
 end
 
 # i9-14900KF RTX 4090
