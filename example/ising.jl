@@ -16,7 +16,7 @@ using Zygote
     
     rt = @time VUMPSRuntime(M, χ, alg)
     rt = @time leading_boundary(rt, M, alg)
-    env = VUMPSEnv(rt, M)
+    env = VUMPSEnv(rt, M, alg)
 
     @test observable(env, model, Val(:Z)     ) ≈ 2.789305993957602
     @test observable(env, model, Val(:mag)   ) ≈ magofβ(model) 

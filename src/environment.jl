@@ -273,7 +273,7 @@ a scalar factor `λ` such that ``λ AL L = L A``, where an initial guess for `L`
 provided.
 """
 function left_canonical(A,L=cellones(A); tol = 1e-12, maxiter = 100, kwargs...)
-    L = getL!(A,L; kwargs...)
+    # L = getL!(A,L; kwargs...) # seems not necessary
     AL, Le, λ = getAL(A,L;kwargs...)
     numiter = 1
     while norm(L.-Le) > tol && numiter < maxiter

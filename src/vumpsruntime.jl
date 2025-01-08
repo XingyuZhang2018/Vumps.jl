@@ -73,7 +73,7 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
 
     Zygote.@ignore alg.verbosity >= 2 && @info @sprintf("Start VUMPS iteration with AD...")
     for i in 1:alg.maxiter_ad
-        rt, err = vumps_step_power(rt, M, alg)
+        rt, err = alg.ifcheckpoint ? checkpoint(vumps_step_power, rt, M, alg) : vumps_step_power(rt, M, alg)
         alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
         if err < alg.tol && i >= alg.miniter_ad
             alg.verbosity >= 2 && Zygote.@ignore @info @sprintf("VUMPS conv@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
