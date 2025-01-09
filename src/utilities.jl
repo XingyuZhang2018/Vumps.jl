@@ -64,5 +64,5 @@ end
 checkpoint(f, x...) = f(x...) 
 Zygote.@adjoint checkpoint(f, x...) = f(x...), ȳ -> Zygote._pullback(f, x...)[2](ȳ)
 
-to_CuArray(x) = [CuArray(x) for x in x]
-to_Array(x) = [Array(x) for x in x]
+to_CuArray(x) = map(CuArray, x)
+to_Array(x) = map(Array, x)

@@ -84,14 +84,14 @@ function ChainRulesCore.rrule(::typeof(to_Array), x)
     function back(dx)
         return NoTangent(), to_CuArray(dx)
     end
-    return x, back
+    return to_Array(x), back
 end
 
 function ChainRulesCore.rrule(::typeof(to_CuArray), x)
     function back(dx)
         return NoTangent(), to_Array(dx)
     end
-    return x, back
+    return to_CuArray(x), back
 end
 
 # function ChainRulesCore.rrule(::typeof(vumps_itr), rt::VUMPSRuntime, M, alg::VUMPS)

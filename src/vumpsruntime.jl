@@ -14,12 +14,18 @@
 end
 
 function init_VUMPSRuntime(M, χ::Int, alg::VUMPS)
+    if alg.ifgpu
+        M = to_CuArray(M)
+    end
     A = initial_A(M, χ)
     AL, L, _ = left_canonical(A)
     R, AR, _ = right_canonical(AL)
     _, FL = leftenv(AL, conj.(AL), M; alg)
     _, FR = rightenv(AR, conj.(AR), M; alg)
     C = LRtoC(L, R)
+    if alg.ifgpu 
+        AL, AR, C, FL, FR = map(to_Array, [AL, AR, C, FL, FR])
+    end
     return VUMPSRuntime(AL, AR, C, FL, FR)
 end
 
@@ -137,7 +143,9 @@ end
 
 function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     @unpack AL, C, AR, FL, FR = rt
-    alg.ifgpu && (AL, C, AR, FL, FR, M = to_CuArray.([AL, C, AR, FL, FR, M]))
+    if alg.ifgpu 
+        AL, C, AR, FL, FR, M = map(to_CuArray, [AL, C, AR, FL, FR, M])
+    end
     AC = ALCtoAC(AL,C)
     _, ACp = ACenv(AC, FL, M, FR; alg)
     _,  Cp =  Cenv( C, FL, FR; alg)
@@ -149,7 +157,9 @@ function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     ALp, ARp, errL, errR = ACCtoALAR(ACp, Cp)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
-    alg.ifgpu && (ALp, Cp, ARp, FL, FR = to_Array.([ALp, Cp, ARp, FL, FR]))
+    if alg.ifgpu 
+        ALp, Cp, ARp, FL, FR = map(to_Array, [ALp, Cp, ARp, FL, FR])
+    end
     return VUMPSRuntime(ALp, ARp, Cp, FL, FR), err
 end
 
