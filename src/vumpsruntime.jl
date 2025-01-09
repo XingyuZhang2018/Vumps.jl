@@ -2,6 +2,7 @@
     ifupdown::Bool = true
     ifdownfromup::Bool = false
     ifsimple_eig::Bool = false
+    ifgpu::Bool = false
     tol::Float64 = Defaults.tol
     maxiter::Int = Defaults.maxiter
     miniter::Int = Defaults.miniter
@@ -136,6 +137,7 @@ end
 
 function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     @unpack AL, C, AR, FL, FR = rt
+    alg.ifgpu && (AL, C, AR, FL, FR, M = to_CuArray.([AL, C, AR, FL, FR, M]))
     AC = ALCtoAC(AL,C)
     _, ACp = ACenv(AC, FL, M, FR; alg)
     _,  Cp =  Cenv( C, FL, FR; alg)
@@ -147,6 +149,7 @@ function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     ALp, ARp, errL, errR = ACCtoALAR(ACp, Cp)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
+    alg.ifgpu && (ALp, Cp, ARp, FL, FR = to_Array.([ALp, Cp, ARp, FL, FR]))
     return VUMPSRuntime(ALp, ARp, Cp, FL, FR), err
 end
 

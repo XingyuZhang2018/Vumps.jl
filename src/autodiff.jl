@@ -80,6 +80,19 @@ function ChainRulesCore.rrule(::Type{<:VUMPSRuntime}, AL, AR, C, FL, FR)
     return rt, back
 end
 
+function ChainRulesCore.rrule(::typeof(to_Array), x)
+    function back(dx)
+        return NoTangent(), to_CuArray(dx)
+    end
+    return x, back
+end
+
+function ChainRulesCore.rrule(::typeof(to_CuArray), x)
+    function back(dx)
+        return NoTangent(), to_Array(dx)
+    end
+    return x, back
+end
 
 # function ChainRulesCore.rrule(::typeof(vumps_itr), rt::VUMPSRuntime, M, alg::VUMPS)
 #     rt = vumps_itr(rt, M, alg)
