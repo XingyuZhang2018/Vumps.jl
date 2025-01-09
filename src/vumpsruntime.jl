@@ -107,9 +107,15 @@ end
 
 function VUMPSEnv(rt::VUMPSRuntime, M::Matrix, alg::VUMPS)
     @unpack AL, AR, C, FL, FR = rt
+    if alg.ifgpu 
+        AL, AR, C, FL, FR, M = map(to_CuArray, [AL, AR, C, FL, FR, M])
+    end
     AC = ALCtoAC(AL, C)
     _, FLo =  leftenv(AL, conj.(AL), M, FL; ifobs = true, alg)
     _, FRo = rightenv(AR, conj.(AR), M, FR; ifobs = true, alg)
+    if alg.ifgpu 
+        AL, AR, C, FL, FR = map(to_Array, [AL, AR, C, FL, FR])
+    end
     return VUMPSEnv(AC, AR, AC, AR, FL, FR, FLo, FRo)
 end
 
@@ -131,13 +137,22 @@ function VUMPSEnv(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M, alg)
     rtup, rtdown = rt
 
     ALu, ARu, Cu, FLu, FRu = rtup.AL, rtup.AR, rtup.C, rtup.FL, rtup.FR
+    if alg.ifgpu 
+        ALu, ARu, Cu, FLu, FRu = map(to_CuArray, [ALu, ARu, Cu, FLu, FRu])
+    end
     ACu = ALCtoAC(ALu, Cu)
 
     ALd, ARd, Cd = rtdown.AL, rtdown.AR, rtdown.C
+    if alg.ifgpu 
+        ALd, ARd, Cd, M = map(to_CuArray, [ALd, ARd, Cd, M])
+    end
     ACd = ALCtoAC(ALd, Cd)
 
     _, FLo =  leftenv(ALu, conj.(ALd), M, FLu; ifobs = true, alg)
     _, FRo = rightenv(ARu, conj.(ARd), M, FRu; ifobs = true, alg)
+    if alg.ifgpu 
+        ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo = map(to_Array, [ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo])
+    end
     return VUMPSEnv(ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo)
 end
 
