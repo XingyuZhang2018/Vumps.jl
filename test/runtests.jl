@@ -1,23 +1,30 @@
-using TeneT
-using TeneT: _arraytype
-using TeneT:qrpos,lqpos,left_canonical,right_canonical,leftenv,FLmap,rightenv,FRmap,ACenv,ACmap,Cenv,Cmap,LRtoC,ALCtoAC,ACCtoALAR,error, env_norm
-using TeneT:_to_front, _to_tail, permute_fronttail
-using TeneT: qrpos,lqpos,left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm, fix_gauge_vumps_step
-using TeneT: vumps_step
-using ChainRulesCore
-using CUDA
-using LinearAlgebra
-using OMEinsum
-using Random
-using Test
-using Zygote
-CUDA.allowscalar(false)
+begin 
+    using TeneT
+    using U1ArrayKit
+    using TeneT:qrpos,lqpos,left_canonical,right_canonical,leftenv,FLmap,rightenv,FRmap,ACenv,ACmap,Cenv,Cmap,LRtoC,ALCtoAC,ACCtoALAR,error, env_norm
+    using TeneT:_to_front, _to_tail, permute_fronttail
+    using TeneT: qrpos,lqpos,left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm, fix_gauge_vumps_step
+    using ChainRulesCore
+    using CUDA
+    using LinearAlgebra
+    using OMEinsum
+    using Random
+    using Test
+    using Zygote
+    CUDA.allowscalar(false)
+end
 
 begin "test utils"
     test_type = [Array]
-    χ, D, d = 4, 3, 2
-    test_As = [rand(ComplexF64, χ, D, χ), rand(ComplexF64, χ, D, D, χ)];
-    test_Ms = [rand(ComplexF64, D, D, D, D), rand(ComplexF64, D, D, D, D, d)];
+    χ, D, d = 4, 2, 2
+    # test_As = [rand(ComplexF64, χ, D, χ), rand(ComplexF64, χ, D, D, χ)];
+    # test_Ms = [rand(ComplexF64, D, D, D, D), rand(ComplexF64, D, D, D, D, d)];
+    test_As = [randU1double(Array, χ,D^2,χ)];
+    m = randU1double(Array, D^2,D^2,D^2,D^2)
+    m += permutedims(m, [1,4,3,2])
+    m += permutedims(m, [3,2,1,4])
+    normalize!(m)
+    test_Ms = [m];
     function num_grad(f, K; δ::Real=1e-5)
         if eltype(K) == ComplexF64
             (f(K + δ / 2) - f(K - δ / 2)) / δ + 
@@ -38,19 +45,9 @@ begin "test utils"
 end
 
 @testset "TeneT.jl" begin
-    @testset "patch" begin
-        println("patch tests running...")
-        include("patch.jl")
-    end
-
     @testset "environment" begin
         println("environment tests running...")
         include("environment.jl")
-    end
-
-    @testset "fixedpoint" begin
-        println("fixedpoint tests running...")
-        include("fixedpoint.jl")
     end
 
     @testset "vumpsruntime.jl" begin

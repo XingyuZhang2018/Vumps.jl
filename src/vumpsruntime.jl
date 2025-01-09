@@ -1,7 +1,7 @@
 @kwdef mutable struct VUMPS
     ifupdown::Bool = true
     ifdownfromup::Bool = false
-    ifsimple_eig::Bool = false
+    ifsimple_eig::Bool = true
     tol::Float64 = Defaults.tol
     maxiter::Int = Defaults.maxiter
     miniter::Int = Defaults.miniter

@@ -1,6 +1,6 @@
-const leg3 = Union{<:AbstractArray{ComplexF64, 3}, Vector{<:AbstractArray{ComplexF64, 3}}, Matrix{<:AbstractArray{ComplexF64, 3}}}
-const leg4 = Union{<:AbstractArray{ComplexF64, 4}, Vector{<:AbstractArray{ComplexF64, 4}}, Matrix{<:AbstractArray{ComplexF64, 4}}}
-const leg5 = Union{<:AbstractArray{ComplexF64, 5}, Vector{<:AbstractArray{ComplexF64, 5}}, Matrix{<:AbstractArray{ComplexF64, 5}}}
+const leg3 = Union{<:AbstractArray{T, 3}, Vector{<:AbstractArray{T, 3}}, Matrix{<:AbstractArray{T, 3}}} where T
+const leg4 = Union{<:AbstractArray{T, 4}, Vector{<:AbstractArray{T, 4}}, Matrix{<:AbstractArray{T, 4}}} where T
+const leg5 = Union{<:AbstractArray{T, 5}, Vector{<:AbstractArray{T, 5}}, Matrix{<:AbstractArray{T, 5}}} where T
 const doublearray = Union{<:DoubleArray, Vector{<:DoubleArray}, Matrix{<:DoubleArray}}
 
 function _to_front(t)
@@ -19,17 +19,16 @@ permute_fronttail(t::InnerProductVec) = RealVec(permute_fronttail(t.vec))
 permute_fronttail(t::AbstractZero) = t
 
 orth_for_ad(v) = v
-function simple_eig(f, v; n=20)
-    λ = 0.0
-    err = 1.0
-    i = 0
-    while err > 1e-12 && i < n
-        Zygote.@ignore begin
+function simple_eig(f, v; max_iter=100)
+    λ_old = 0.0
+    Zygote.@ignore begin
+        for _ in 1:max_iter
             v = f(v)
-            normalize!(v)
-            CUDA.@allowscalar λ = Array(f(v)[1:2] ./ v[1:2])
-            err = norm(λ[1] - λ[2])
-            i += 1
+            λ = norm(v)
+            v /= λ
+            # @show abs(λ - λ_old)
+            abs(λ - λ_old) < 1e-8 && break
+            λ_old = λ
         end
     end
     for _ in 1:5
@@ -38,8 +37,15 @@ function simple_eig(f, v; n=20)
     end
 
     v = orth_for_ad(v)
-
-    return λ[1], v
+    if v isa DoubleArray
+        v′ = f(v)
+        CUDA.@allowscalar λ = v′.real.tensor[1] ./ v.real.tensor[1] 
+    else
+        CUDA.@allowscalar λ = f(v)[1] ./ v[1]
+        @show f(v) ./ v
+    end
+    
+    return λ, v
 end
 
 function mcform(M)

@@ -21,7 +21,7 @@ export leading_boundary
 
 include("defaults.jl")
 include("utilities.jl")
-include("patch.jl")
+# include("patch.jl")
 include("environment.jl")
 include("vumpsruntime.jl")
 include("grassmann.jl")

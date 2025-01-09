@@ -98,45 +98,6 @@ a ────┬──── c    a──────┬──────c    
 f ────┴──── h    d──────┴──────e     d─────e
 ```
 """
-
-safesign(x::Number) = iszero(x) ? one(x) : sign(x)
-
-"""
-    qrpos(A)
-
-Returns a QR decomposition, i.e. an isometric `Q` and upper triangular `R` matrix, where `R`
-is guaranteed to have positive diagonal elements.
-"""
-qrpos(A) = qrpos!(copy(A))
-function qrpos!(A)
-    mattype = _mattype(A)
-    F = qr!(mattype(A))
-    Q = mattype(F.Q)
-    R = F.R
-    phases = safesign.(diag(R))
-    Q .= Q * Diagonal(phases)
-    R .= Diagonal(conj.(phases)) * R
-    return Q, R
-end
-
-"""
-    lqpos(A)
-
-Returns a LQ decomposition, i.e. a lower triangular `L` and isometric `Q` matrix, where `L`
-is guaranteed to have positive diagonal elements.
-"""
-lqpos(A) = lqpos!(copy(A))
-function lqpos!(A)
-    mattype = _mattype(A)
-    F = qr!(mattype(A'))
-    Q = mattype(mattype(F.Q)')
-    L = mattype(F.R')
-    phases = safesign.(diag(L))
-    Q .= Diagonal(phases) * Q
-    L .= L * Diagonal(conj!(phases))
-    return L, Q
-end
-
 function env_norm(F::Matrix)
     Ni,Nj = size(F)
     buf = Zygote.Buffer(F)
@@ -168,6 +129,13 @@ function cellones(A)
     χ = size(A[1], 1)
     atype = _arraytype(A[1])
     return [atype{ComplexF64}(I, χ, χ) for _ = 1:Ni, _ = 1:Nj]
+end
+
+function cellones(A::doublearray)
+    Ni, Nj = size(A)
+    χ = size(A[1], 1)
+    atype = _arraytype(A[1])
+    return [IU1double(atype, χ) for _ = 1:Ni, _ = 1:Nj]
 end
 
 function initial_A(M::leg4, χ::Int)
@@ -375,6 +343,13 @@ function FLint(AL, M::leg4)
     return [(D = size(M[i, j], 1); atype(rand(ComplexF64, χ, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
+function FLint(AL, M::doublearray)
+    Ni, Nj = size(AL)
+    χ = size(AL[1], 1)
+    atype = _arraytype(AL[1])
+    return [(D = size(M[i, j], 1); randU1double(atype, χ,D,χ)) for i = 1:Ni, j = 1:Nj]
+end
+
 function FLint(AL, M::leg5)
     Ni, Nj = size(AL)
     χ = size(AL[1], 1)
@@ -387,6 +362,13 @@ function FRint(AR, M::leg4)
     χ = size(AR[1], 1)
     atype = _arraytype(AR[1])
     return [(D = size(M[i, j], 3); atype(rand(ComplexF64, χ, D, χ))) for i = 1:Ni, j = 1:Nj]
+end
+
+function FRint(AR, M::doublearray)
+    Ni, Nj = size(AR)
+    χ = size(AR[1], 1)
+    atype = _arraytype(AR[1])
+    return [(D = size(M[i, j], 3); randU1double(atype, χ,D,χ)) for i = 1:Ni, j = 1:Nj]
 end
 
 function FRint(AR, M::leg5)
@@ -450,7 +432,7 @@ of AR - M - conj(AR) contracted along the physical dimension.
 """
 function rightenv(ARu, ARd, M, FR=FRint(ARu,M); ifobs=false, alg, kwargs...) 
     Ni,Nj = size(M)
-    λR = Zygote.Buffer(zeros(ComplexF64, Ni))
+    λR = Zygote.Buffer(zeros(eltype(ARu[1]), Ni))
     FR′ = Zygote.Buffer(FR)
     for i in 1:Ni
         ir = ifobs ? Ni + 1 - i : mod1(i + 1, Ni)
@@ -582,7 +564,7 @@ FLᵢⱼ ─── Mᵢⱼ ───── FRᵢⱼ               │      │  
 """
 function ACenv(AC, FL, M, FR; alg, kwargs...)
     Ni, Nj = size(M)
-    λAC = Zygote.Buffer(zeros(ComplexF64, Nj))
+    λAC = Zygote.Buffer(zeros(eltype(AC[1]), Nj))
     AC′ = Zygote.Buffer(AC)
     for j in 1:Nj
         if alg.ifsimple_eig
@@ -618,7 +600,7 @@ FLᵢⱼ₊₁ ──── FRᵢⱼ            │       │
 """
 function Cenv(C, FL, FR; alg, kwargs...)
     Ni, Nj = size(C)
-    λC = Zygote.Buffer(zeros(ComplexF64, Nj))
+    λC = Zygote.Buffer(zeros(eltype(C[1]), Nj))
     C′ = Zygote.Buffer(C)
     for j in 1:Nj
         jr = mod1(j + 1, Nj)
