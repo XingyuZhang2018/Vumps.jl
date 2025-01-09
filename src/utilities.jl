@@ -18,17 +18,15 @@ permute_fronttail(t::InnerProductVec) = RealVec(permute_fronttail(t.vec))
 permute_fronttail(t::AbstractZero) = t
 
 orth_for_ad(v) = v
-function simple_eig(f, v; n=20)
+function simple_eig(f, v; max_iter=20, ifvalue=false)
     λ = 0.0
-    err = 1.0
-    i = 0
-    while err > 1e-12 && i < n
-        Zygote.@ignore begin
+    Zygote.@ignore begin
+        for _ in 1:max_iter
             v = f(v)
-            normalize!(v)
-            CUDA.@allowscalar λ = Array(f(v)[1:2] ./ v[1:2])
-            err = norm(λ[1] - λ[2])
-            i += 1
+            λ′ = norm(v)
+            v /= λ′
+            abs(λ′ - λ) < 1e-8 && break
+            λ = λ′
         end
     end
     for _ in 1:5
@@ -37,8 +35,17 @@ function simple_eig(f, v; n=20)
     end
 
     v = orth_for_ad(v)
-
-    return λ[1], v
+    if ifvalue
+        if v isa DoubleArray
+            v′ = f(v)
+            CUDA.@allowscalar λ = v′.real.tensor[1] ./ v.real.tensor[1] 
+        else
+            CUDA.@allowscalar λ = f(v)[1] ./ v[1]
+            @show f(v) ./ v
+        end
+    end
+    
+    return λ, v
 end
 
 function mcform(M)
