@@ -2,7 +2,6 @@
     ifupdown::Bool = true
     ifdownfromup::Bool = false
     ifsimple_eig::Bool = false
-    ifgpu::Bool = false
     tol::Float64 = Defaults.tol
     maxiter::Int = Defaults.maxiter
     miniter::Int = Defaults.miniter
@@ -14,18 +13,12 @@
 end
 
 function init_VUMPSRuntime(M, χ::Int, alg::VUMPS)
-    if alg.ifgpu
-        M = to_CuArray(M)
-    end
     A = initial_A(M, χ)
     AL, L, _ = left_canonical(A)
     R, AR, _ = right_canonical(AL)
     _, FL = leftenv(AL, conj.(AL), M; alg)
     _, FR = rightenv(AR, conj.(AR), M; alg)
     C = LRtoC(L, R)
-    if alg.ifgpu 
-        AL, AR, C, FL, FR = map(to_Array, [AL, AR, C, FL, FR])
-    end
     return VUMPSRuntime(AL, AR, C, FL, FR)
 end
 
@@ -107,15 +100,9 @@ end
 
 function VUMPSEnv(rt::VUMPSRuntime, M::Matrix, alg::VUMPS)
     @unpack AL, AR, C, FL, FR = rt
-    if alg.ifgpu 
-        AL, AR, C, FL, FR, M = map(to_CuArray, [AL, AR, C, FL, FR, M])
-    end
     AC = ALCtoAC(AL, C)
     _, FLo =  leftenv(AL, conj.(AL), M, FL; ifobs = true, alg)
     _, FRo = rightenv(AR, conj.(AR), M, FR; ifobs = true, alg)
-    if alg.ifgpu 
-        AL, AR, C, FL, FR = map(to_Array, [AL, AR, C, FL, FR])
-    end
     return VUMPSEnv(AC, AR, AC, AR, FL, FR, FLo, FRo)
 end
 
@@ -137,30 +124,18 @@ function VUMPSEnv(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M, alg)
     rtup, rtdown = rt
 
     ALu, ARu, Cu, FLu, FRu = rtup.AL, rtup.AR, rtup.C, rtup.FL, rtup.FR
-    if alg.ifgpu 
-        ALu, ARu, Cu, FLu, FRu = map(to_CuArray, [ALu, ARu, Cu, FLu, FRu])
-    end
     ACu = ALCtoAC(ALu, Cu)
 
     ALd, ARd, Cd = rtdown.AL, rtdown.AR, rtdown.C
-    if alg.ifgpu 
-        ALd, ARd, Cd, M = map(to_CuArray, [ALd, ARd, Cd, M])
-    end
     ACd = ALCtoAC(ALd, Cd)
 
     _, FLo =  leftenv(ALu, conj.(ALd), M, FLu; ifobs = true, alg)
     _, FRo = rightenv(ARu, conj.(ARd), M, FRu; ifobs = true, alg)
-    if alg.ifgpu 
-        ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo = map(to_Array, [ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo])
-    end
     return VUMPSEnv(ACu, ARu, ACd, ARd, FLu, FRu, FLo, FRo)
 end
 
 function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     @unpack AL, C, AR, FL, FR = rt
-    if alg.ifgpu 
-        AL, C, AR, FL, FR, M = map(to_CuArray, [AL, C, AR, FL, FR, M])
-    end
     AC = ALCtoAC(AL,C)
     _, ACp = ACenv(AC, FL, M, FR; alg)
     _,  Cp =  Cenv( C, FL, FR; alg)
@@ -172,9 +147,6 @@ function vumps_step_power(rt::VUMPSRuntime, M, alg::VUMPS)
     ALp, ARp, errL, errR = ACCtoALAR(ACp, Cp)
     err = errL + errR
     alg.verbosity >= 4 && err > 1e-8 && println("errL=$errL, errR=$errR")
-    if alg.ifgpu 
-        ALp, Cp, ARp, FL, FR = map(to_Array, [ALp, Cp, ARp, FL, FR])
-    end
     return VUMPSRuntime(ALp, ARp, Cp, FL, FR), err
 end
 
