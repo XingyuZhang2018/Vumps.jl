@@ -182,6 +182,12 @@ function initial_A(M::leg5, χ::Int)
     return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
 end
 
+function initial_A(M::leg8, χ::Int)
+    Ni, Nj = size(M)
+    atype = _arraytype(M[1])
+    return [(D = size(M[i,j], 7); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
+end
+
 ρmap(ρ, Au::leg3, Ad::leg3) = ein"(dc,csb),dsa -> ab"(ρ,Au,Ad)
 ρmap(ρ, Au::leg4, Ad::leg4) = ein"(dc,cstb),dsta -> ab"(ρ,Au,Ad)
 
@@ -330,6 +336,7 @@ FLᵢⱼ₊₁ =   FLᵢⱼ ─ Mᵢⱼ   ──                     ├─ d �
 
 FLmap(FL, ALu, ALd, M::leg4) = ein"((adf,fgh),dgeb),abc -> ceh"(FL, ALd, M, ALu)
 FLmap(FL, ALu, ALd, M::leg5) = ein"(((aefi,ijkl),ejgbp),fkhcp),abcd -> dghl"(FL, ALd, M, conj(M), ALu)
+FLmap(FL, ALu, ALd, M::leg8) = ein"((aefi,ijkl),efjkghbc),abcd -> dghl"(FL, ALd, M, ALu)
 
 function FLmap(J::Int, FLij, ALui, ALdir, Mi)
     Nj = length(ALui)
@@ -352,6 +359,7 @@ end
 """
 FRmap(FR, ARu, ARd, M::leg4) = ein"((abc,ceh),dgeb),fgh -> adf"(ARu, FR, M, ARd)
 FRmap(FR, ARu, ARd, M::leg5) = ein"(((abcd,dghl),ejgbp),fkhcp),ijkl -> aefi"(ARu, FR, M, conj(M), ARd)
+FRmap(FR, ARu, ARd, M::leg8) = ein"((abcd,dghl),efjkghbc),ijkl -> aefi"(ARu, FR, M, ARd)
 
 function FRmap(J::Int, FRij, ARui, ARdir, Mi)
     Nj = length(ARui)
@@ -376,6 +384,13 @@ function FLint(AL, M::leg5)
     return [(D = size(M[i, j], 1); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
+function FLint(AL, M::leg8)
+    Ni, Nj = size(AL)
+    χ = size(AL[1], 1)
+    atype = _arraytype(AL[1])
+    return [(D = size(M[i, j], 1); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
+end
+
 function FRint(AR, M::leg4)
     Ni, Nj = size(AR)
     χ = size(AR[1], 1)
@@ -388,6 +403,13 @@ function FRint(AR, M::leg5)
     χ = size(AR[1], 1)
     atype = _arraytype(AR[1])
     return [(D = size(M[i, j], 3); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
+end
+
+function FRint(AR, M::leg8)
+    Ni, Nj = size(AR)
+    χ = size(AR[1], 1)
+    atype = _arraytype(AR[1])
+    return [(D = size(M[i, j], 5); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
 """
@@ -530,6 +552,7 @@ end
 """
 ACmap(AC, FL, FR, M::leg4) = ein"((abc,ceh),dgeb),adf -> fgh"(AC,FR,M,FL)
 ACmap(AC, FL, FR, M::leg5) = ein"(((abcd,dghl),ejgbp),fkhcp),aefi -> ijkl"(AC,FR,M,conj(M),FL)
+ACmap(AC, FL, FR, M::leg8) = ein"((abcd,dghl),efjkghbc),aefi -> ijkl"(AC,FR,M,FL)
 
 function ACmap(I::Int, ACij, FLj, FRj, Mj)
     Ni = length(FLj)

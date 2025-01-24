@@ -24,6 +24,7 @@ end
 
 _down_m(m::leg4) = permutedims(conj(m), (1,4,3,2))
 _down_m(m::leg5) = permutedims(conj(m), (1,4,3,2,5))
+_down_m(m::leg8) = permutedims(conj(m), (1,2,7,8,5,6,3,4))
 function _down_M(M)
     Ni, Nj = size(M)
     Md = Zygote.Buffer(M)
