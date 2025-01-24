@@ -1,6 +1,6 @@
 using TeneT
 using TeneT: _arraytype
-using TeneT: qrpos,lqpos,left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm, fix_gauge_vumps_step
+using TeneT: left_canonical,leftenv,right_canonical,rightenv,ACenv,Cenv,LRtoC,ALCtoAC,ACCtoALAR,env_norm, fix_gauge_vumps_step
 using TeneT: vumps_step
 using ChainRulesCore
 using CUDA
@@ -9,6 +9,7 @@ using OMEinsum
 using Random
 using Test
 using Zygote
+using U1ArrayKit
 CUDA.allowscalar(false)
 
 begin "test utils"

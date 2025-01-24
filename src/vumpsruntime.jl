@@ -1,23 +1,27 @@
 @kwdef mutable struct VUMPS
-    ifupdown::Bool = true
-    ifdownfromup::Bool = false
-    ifsimple_eig::Bool = false
-    tol::Float64 = Defaults.tol
-    maxiter::Int = Defaults.maxiter
-    miniter::Int = Defaults.miniter
-    maxiter_ad::Int = Defaults.maxiter_ad
-    miniter_ad::Int = Defaults.miniter_ad
-    ifcheckpoint::Bool = Defaults.ifcheckpoint
-    show_every::Int = 10
-    verbosity::Int = Defaults.verbosity
+    U1info = nothing # U1info to build U1Array
+    ifupdown::Bool = true # if upper and down environments are calculated
+    ifdownfromup::Bool = false # if down environment is calculated from up environment
+    ifsimple_eig::Bool = false # if simple_eig is used
+    tol::Float64 = Defaults.tol # tolerance for convergence
+    maxiter::Int = Defaults.maxiter # maximum number of iterations
+    miniter::Int = Defaults.miniter # minimum number of iterations
+    maxiter_ad::Int = Defaults.maxiter_ad # maximum number of iterations for AD
+    miniter_ad::Int = Defaults.miniter_ad # minimum number of iterations for AD
+    ifcheckpoint::Bool = Defaults.ifcheckpoint # if checkpoint is used
+    show_every::Int = 10 # show the information every show_every iterations
+    verbosity::Int = Defaults.verbosity # verbosity
 end
 
 function init_VUMPSRuntime(M, χ::Int, alg::VUMPS)
-    A = initial_A(M, χ)
-    AL, L, _ = left_canonical(A)
-    R, AR, _ = right_canonical(AL)
-    _, FL = leftenv(AL, conj.(AL), M; alg)
-    _, FR = rightenv(AR, conj.(AR), M; alg)
+    A = initial_A(M, χ; alg)
+    L = cellones(A; alg)
+    AL, L, _ = left_canonical(A, L)
+    R, AR, _ = right_canonical(AL, L)
+    FL = FLint(AL, M; alg)
+    FR = FRint(AR, M; alg)
+    _, FL = leftenv(AL, conj.(AL), M, FL; alg)
+    _, FR = rightenv(AR, conj.(AR), M, FR; alg)
     C = LRtoC(L, R)
     return VUMPSRuntime(AL, AR, C, FL, FR)
 end
@@ -74,7 +78,7 @@ function vumps_itr(rt::VUMPSRuntime, M, alg::VUMPS)
 
     Zygote.@ignore alg.verbosity >= 2 && @info @sprintf("Start VUMPS iteration with AD...")
     for i in 1:alg.maxiter_ad
-        rt, err = alg.ifcheckpoint ? checkpoint(vumps_step_power, rt, M, alg) : vumps_step_power(rt, M, alg)
+        rt, err = alg.ifcheckpoint ? checkpoint(vumps_step_Hermitian, rt, M, alg) : vumps_step_Hermitian(rt, M, alg)
         alg.verbosity >= 3 && i % alg.show_every == 0 && Zygote.@ignore @info @sprintf("VUMPS@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)
         if err < alg.tol && i >= alg.miniter_ad
             alg.verbosity >= 2 && Zygote.@ignore @info @sprintf("VUMPS conv@step: %4d\terr = %.3e\ttime = %.3f sec", i, err, time()-t)

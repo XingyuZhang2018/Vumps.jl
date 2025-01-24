@@ -98,52 +98,8 @@ a ────┬──── c    a──────┬──────c    
 f ────┴──── h    d──────┴──────e     d─────e
 ```
 """
-
-safesign(x::Number) = iszero(x) ? one(x) : sign(x)
-
-"""
-    qrpos(A)
-
-Returns a QR decomposition, i.e. an isometric `Q` and upper triangular `R` matrix, where `R`
-is guaranteed to have positive diagonal elements.
-"""
-qrpos(A) = qrpos!(copy(A))
-function qrpos!(A)
-    mattype = _mattype(A)
-    F = qr!(mattype(A))
-    Q = mattype(F.Q)
-    R = F.R
-    phases = safesign.(diag(R))
-    Q .= Q * Diagonal(phases)
-    R .= Diagonal(conj.(phases)) * R
-    return Q, R
-end
-
-"""
-    lqpos(A)
-
-Returns a LQ decomposition, i.e. a lower triangular `L` and isometric `Q` matrix, where `L`
-is guaranteed to have positive diagonal elements.
-"""
-lqpos(A) = lqpos!(copy(A))
-function lqpos!(A)
-    mattype = _mattype(A)
-    F = qr!(mattype(A'))
-    Q = mattype(mattype(F.Q)')
-    L = mattype(F.R')
-    phases = safesign.(diag(L))
-    Q .= Diagonal(phases) * Q
-    L .= L * Diagonal(conj!(phases))
-    return L, Q
-end
-
 function env_norm(F::Matrix)
-    Ni,Nj = size(F)
-    buf = Zygote.Buffer(F)
-    @inbounds @views for j in 1:Nj, i in 1:Ni
-        buf[i,j] = F[i,j]/norm(F[i,j])
-    end
-    return copy(buf)
+    return [F/norm(F) for F in F]
 end
 
 """
@@ -163,29 +119,60 @@ function selectpos(λs, Fs, N)
     end
 end
 
-function cellones(A)
+function initial_A(M::leg4, χ::Int; kwargs...)
+    Ni, Nj = size(M)
+    atype = _arraytype(M[1])
+    return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,χ))) for i = 1:Ni, j = 1:Nj]
+end
+
+function initial_A(M::leg5, χ::Int; kwargs...)
+    Ni, Nj = size(M)
+    atype = _arraytype(M[1])
+    return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
+end
+
+function initial_A(M::leg8, χ::Int; kwargs...)
+    Ni, Nj = size(M)
+    atype = _arraytype(M[1])
+    return [(D = size(M[i,j], 7); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
+end
+
+function initial_A(M::Matrix{<:U1Array}, χ::Int; alg)
+    Ni, Nj = size(M)
+    atype = _arraytype(M[1])
+    A = Array{atype{ComplexF64, 4}, 2}(undef, Ni, Nj)
+    qnD, qnχ, dimsD, dimsχ = alg.U1info
+    indqn = [qnχ, qnD, qnD, qnχ]
+    indims = [dimsχ, dimsD, dimsD, dimsχ]
+    D = sum(dimsD)
+    for j in 1:Nj, i in 1:Ni
+        A[i,j] = randinitial(M[i,j], χ, D, D, χ; 
+                             dir = [-1, -1, 1, 1], indqn = indqn, indims = indims
+        )
+    end
+    return A
+end
+
+function cellones(A; kwargs...)
     Ni, Nj = size(A)
     χ = size(A[1], 1)
     atype = _arraytype(A[1])
     return [atype{ComplexF64}(I, χ, χ) for _ = 1:Ni, _ = 1:Nj]
 end
 
-function initial_A(M::leg4, χ::Int)
-    Ni, Nj = size(M)
-    atype = _arraytype(M[1])
-    return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,χ))) for i = 1:Ni, j = 1:Nj]
-end
-
-function initial_A(M::leg5, χ::Int)
-    Ni, Nj = size(M)
-    atype = _arraytype(M[1])
-    return [(D = size(M[i,j], 4); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
-end
-
-function initial_A(M::leg8, χ::Int)
-    Ni, Nj = size(M)
-    atype = _arraytype(M[1])
-    return [(D = size(M[i,j], 7); atype(rand(ComplexF64, χ,D,D,χ))) for i = 1:Ni, j = 1:Nj]
+function cellones(A::Matrix{<:U1Array}; alg)
+    Ni, Nj = size(A)
+    χ = size(A[1,1],1)
+    atype = _arraytype(A[1,1])
+    C = Array{atype, 2}(undef, Ni, Nj)
+    _, qnχ, _, dimsχ = alg.U1info
+    dir = getdir(A[1,1])[[1,3]]
+    for j in 1:Nj, i in 1:Ni
+        C[i,j] = Iinitial(A[i,j], χ; 
+                          dir = dir, indqn = [qnχ, qnχ], indims = [dimsχ, dimsχ]  
+        )
+    end
+    return C
 end
 
 ρmap(ρ, Au::leg3, Ad::leg3) = ein"(dc,csb),dsa -> ab"(ρ,Au,Ad)
@@ -272,7 +259,7 @@ Given an MPS tensor `A`, return a left-canonical MPS tensor `AL`, a gauge transf
 a scalar factor `λ` such that ``λ AL L = L A``, where an initial guess for `L` can be
 provided.
 """
-function left_canonical(A,L=cellones(A); tol = 1e-12, maxiter = 100, kwargs...)
+function left_canonical(A, L; tol = 1e-12, maxiter = 100, kwargs...)
     # L = getL!(A,L; kwargs...) # seems not necessary
     AL, Le, λ = getAL(A,L;kwargs...)
     numiter = 1
@@ -292,7 +279,7 @@ Given an MPS tensor `A`, return a gauge transform R, a right-canonical MPS tenso
 a scalar factor `λ` such that ``λ R AR^s = A^s R``, where an initial guess for `R` can be
 provided.
 """
-function right_canonical(A, L=cellones(A); tol = 1e-12, maxiter = 100, kwargs...)
+function right_canonical(A, L; tol = 1e-12, maxiter = 100, kwargs...)
     Ni,Nj = size(A)
     Ar = similar(A)
     Lr = similar(L)
@@ -370,46 +357,83 @@ function FRmap(J::Int, FRij, ARui, ARdir, Mi)
     return FRij
 end
 
-function FLint(AL, M::leg4)
+function FLint(AL, M::leg4; kwargs...)
     Ni, Nj = size(AL)
     χ = size(AL[1], 1)
     atype = _arraytype(AL[1])
     return [(D = size(M[i, j], 1); atype(rand(ComplexF64, χ, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
-function FLint(AL, M::leg5)
+function FLint(AL, M::leg5; kwargs...)
     Ni, Nj = size(AL)
     χ = size(AL[1], 1)
     atype = _arraytype(AL[1])
     return [(D = size(M[i, j], 1); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
-function FLint(AL, M::leg8)
+function FLint(AL, M::leg8; kwargs...)
     Ni, Nj = size(AL)
     χ = size(AL[1], 1)
     atype = _arraytype(AL[1])
     return [(D = size(M[i, j], 1); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
-function FRint(AR, M::leg4)
+function FLint(AL, M::Matrix{<:U1Array}; alg)
+    Ni,Nj = size(AL)
+    χ = size(AL[1],1)
+    atype = _arraytype(AL[1])
+    FL = Array{atype{ComplexF64, 4}, 2}(undef, Ni, Nj)
+    qnD, qnχ, dimsD, dimsχ = alg.U1info
+    dir = [1, getdir(M[1])[1], -getdir(M[1])[1], -1]
+    indqn = [qnχ, qnD, qnD, qnχ]
+    indims = [dimsχ, dimsD, dimsD, dimsχ]
+    for j in 1:Nj, i in 1:Ni
+        D = size(M[i,j], 1)
+        FL[i,j] = randinitial(AL[i,j], χ, D, D, χ; 
+                              dir = dir, indqn = indqn, indims = indims
+        )
+    end
+    return FL
+end
+
+function FRint(AR, M::leg4; kwargs...)
     Ni, Nj = size(AR)
     χ = size(AR[1], 1)
     atype = _arraytype(AR[1])
     return [(D = size(M[i, j], 3); atype(rand(ComplexF64, χ, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
-function FRint(AR, M::leg5)
+function FRint(AR, M::leg5; kwargs...)
     Ni, Nj = size(AR)
     χ = size(AR[1], 1)
     atype = _arraytype(AR[1])
     return [(D = size(M[i, j], 3); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
 end
 
-function FRint(AR, M::leg8)
+function FRint(AR, M::leg8; kwargs...)
     Ni, Nj = size(AR)
     χ = size(AR[1], 1)
     atype = _arraytype(AR[1])
     return [(D = size(M[i, j], 5); atype(rand(ComplexF64, χ, D, D, χ))) for i = 1:Ni, j = 1:Nj]
+end
+
+function FRint(AR, M::Matrix{<:U1Array}; alg)
+    Ni,Nj = size(AR)
+    χ = size(AR[1], 4)
+    atype = _arraytype(AR[1])
+    FR = Array{atype{ComplexF64, 4}, 2}(undef, Ni, Nj)
+    qnD, qnχ, dimsD, dimsχ = alg.U1info
+    dir = [-1, getdir(M[1])[3], -getdir(M[1])[3], 1]
+    indqn = [qnχ, qnD, qnD, qnχ]
+    indims = [dimsχ, dimsD, dimsD, dimsχ]
+    for j in 1:Nj, i in 1:Ni
+        D = size(M[i,j], 5)
+        FR[i,j] = randinitial(AR[i,j], χ, D, D, χ; 
+                              dir = dir, indqn = indqn, indims = indims
+        )
+    end
+
+    return FR
 end
 
 """
@@ -658,35 +682,25 @@ function Cenv(C, FL, FR; alg, kwargs...)
     return copy(λC), copy(C′)
 end
 
-function ACCtoAL(AC, C)
-    Ni, Nj = size(AC)
-    errL = 0.0
-    AL = Zygote.Buffer(AC)
-    @inbounds for j in 1:Nj, i in 1:Ni
-        QAC, RAC = qrpos(_to_tail(AC[i,j]))
-         QC, RC  = qrpos(C[i,j])
-        errL += norm(RAC-RC)
-        AL[i,j] = reshape(QAC*QC', size(AC[i,j]))
-    end
-    return copy(AL), errL
-end
-
-function ACCtoAR(AC, C)
-    Ni, Nj = size(AC)
-    errR = 0.0
-    AR = Zygote.Buffer(AC)
-    @inbounds for j in 1:Nj, i in 1:Ni
-        jr = mod1(j - 1, Nj)
-        LAC, QAC = lqpos(_to_front(AC[i,j]))
-         LC, QC  = lqpos(C[i,jr])
-        errR += norm(LAC-LC)
-        AR[i,j] = reshape(QC'*QAC, size(AC[i,j]))
-    end
-    return copy(AR), errR
-end
-
 ALCtoAC(AL::leg3, C) = [ein"asc,cb -> asb"(AL, C) for (AL, C) in zip(AL, C)]
 ALCtoAC(AL::leg4, C) = [ein"astc,cb -> astb"(AL, C) for (AL, C) in zip(AL, C)]
+
+function ACCtoAL(ACij, Cij)
+    QAC, RAC = qrpos(_to_tail(ACij))
+     QC, RC  = qrpos(Cij)
+    errL = norm(RAC-RC)
+    AL = reshape(QAC*QC', size(ACij))
+    return AL, errL
+end
+
+function ACCtoAR(ACij, Cijr)
+    LAC, QAC = lqpos(_to_front(ACij))
+     LC, QC  = lqpos(Cijr)
+    errR = norm(LAC-LC)
+    AR = reshape(QC'*QAC, size(ACij))
+    return AR, errR
+end
+
 
 """
     AL, AR = ACCtoALAR(AC, C)
@@ -701,7 +715,12 @@ QR factorization to get `AL` and `AR` from `AC` and `C`
 function ACCtoALAR(AC, C)
     AC = env_norm(AC)
      C = env_norm( C)
-    AL, errL = ACCtoAL(AC, C)
-    AR, errR = ACCtoAR(AC, C)
+    ALijerrL = [ACCtoAL(AC, C) for (AC, C) in zip(AC, C)]
+    AL = [ALij for (ALij, _) in ALijerrL]
+    errL = Zygote.@ignore sum([errL for (_, errL) in ALijerrL])
+    Ni, Nj = size(AC)
+    ARijerrR = [ACCtoAR(AC[i,j], C[i,mod1(j-1,Nj)]) for i=1:Ni, j in 1:Nj]
+    AR = [ARij for (ARij, _) in ARijerrR]
+    errR = Zygote.@ignore sum([errR for (_, errR) in ARijerrR])
     return AL, AR, errL, errR
 end
