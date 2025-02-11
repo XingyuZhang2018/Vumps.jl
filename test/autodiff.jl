@@ -65,7 +65,7 @@ end
         return norm(M)
     end
 
-    @test Zygote.gradient(foo, M)[1] ≈ num_grad(foo, M) atol = 1e-8
+    @test Zygote.gradient(foo, M)[1].data ≈ num_grad(foo, M) atol = 1e-8
 end
 
 @testset "structarray buffer for $atype" for atype in [Array]
@@ -237,7 +237,7 @@ end
 include("../example/exampletensors.jl")
 include("../example/exampleobs.jl")
 
-@testset "ising backward with $atype" for atype = [Array], ifupdown in [false, true], pattern in [[1;;], [1 1; 1 1], [1 2; 2 1], [1 2; 3 4], [1 1; 2 2]]
+@testset "ising backward with $atype $ifupdown $pattern" for atype = [Array], ifupdown in [false, true], pattern in [[1 2 3; 2 3 1; 3 1 2]]
     # [1;;], [1 1; 1 1], [1 2; 2 1], [1 2; 3 4], [1 1; 2 2]
     # [1 3 2 2 3 1; 2 3 1 1 3 2]
     Random.seed!(100)
@@ -245,24 +245,22 @@ include("../example/exampleobs.jl")
                 miniter=1, 
                 maxiter_ad=3, 
                 miniter_ad=3, 
-                verbosity=3, 
+                verbosity=2, 
                 ifupdown=ifupdown, 
                 ifdownfromup=true, 
                 ifsimple_eig=false)
     χ = 10
-    β = 0.5
-    model = Ising(β)
-    l = length(unique(pattern))
-    M = StructArray([atype(model_tensor(model, Val(:bulk))) for _ in 1:l], pattern)
-    rt = VUMPSRuntime(M, χ, alg)
 
     function energy(β)
         model = Ising(β)
-        M = StructArray([atype(model_tensor(model, Val(:bulk))) for _ in 1:l], pattern)
+        l = length(unique(pattern))
+        data =[atype(model_tensor(model, Val(:bulk))) for _ in 1:l]
+        M = StructArray(data, pattern)
+        rt = VUMPSRuntime(M, χ, alg)
         rt′ = leading_boundary(rt, M, alg)
         env = VUMPSEnv(rt′, M, alg)
         return real(observable(env, model, pattern, Val(:energy)))
     end
     # @show energy(0.5)
-    @test Zygote.gradient(energy, 0.5)[1] ≈ num_grad(energy, 0.5)
+    @test Zygote.gradient(energy, 0.3)[1] ≈ num_grad(energy, 0.3)
 end

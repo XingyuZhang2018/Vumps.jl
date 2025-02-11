@@ -43,8 +43,8 @@ test_S2s = [randSA(test_type[1], [1 2; 2 1], [(χ, χ, χ, χ), (χ, χ, χ, χ)
         include("vumpsruntime.jl")
     end
 
-    # @testset "autodiff.jl" begin
-    #     println("autodiff tests running...")
-    #     include("autodiff.jl")
-    # end
+    @testset "autodiff.jl" begin
+        println("autodiff tests running...")
+        include("autodiff.jl")
+    end
 end

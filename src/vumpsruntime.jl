@@ -39,18 +39,31 @@ function _down_M(M::StructArray)
     return Md
 end
 
+function _down_init_from_up(rtup::VUMPSRuntime, Md::StructArray)
+    @unpack AL, AR, C, FL, FR = rtup
+    Ni = size(AL, 1)
+    index = [Ni + 1 - i for i in 1:Ni]
+    ALd = StructArray(AL.data[index], Md.pattern)
+    ARd = StructArray(AR.data[index], Md.pattern)
+    Cd = StructArray(C.data[index], Md.pattern)
+    FLd = StructArray(FL.data[index], Md.pattern)
+    FRd = StructArray(FR.data[index], Md.pattern)
+    return VUMPSRuntime(ALd, ARd, Cd, FLd, FRd)
+end
+
 function VUMPSRuntime(M::StructArray, χ::Int, alg::VUMPS)
     Ni, Nj = size(M)
 
     rtup = init_VUMPSRuntime(M, χ, alg)
     alg.verbosity >= 2 && Zygote.@ignore @info "VUMPS init: cell=($(Ni)×$(Nj)) χ = $(χ) up(↑) environment"
 
-    if alg.ifupdown     
+    if alg.ifupdown    
+        Md = _down_M(M) 
         if alg.ifdownfromup
+            rtdown = _down_init_from_up(rtup, Md)
             alg.verbosity >= 2 && Zygote.@ignore @info "VUMPS init: cell=($(Ni)×$(Nj)) χ = $(χ) down(↓) from up(↑) environment"
-            return rtup
+            return rtup, rtdown
         else
-            Md = _down_M(M)
             rtdown = init_VUMPSRuntime(Md, χ, alg)
             alg.verbosity >= 2 && Zygote.@ignore @info "VUMPS init: cell=($(Ni)×$(Nj)) χ = $(χ) down(↓) environment"
             return rtup, rtdown
@@ -93,22 +106,14 @@ function vumps_itr(rt::VUMPSRuntime, M::StructArray, alg::VUMPS)
 end
 
 function leading_boundary(rt::VUMPSRuntime, M::StructArray, alg::VUMPS)
-    rtup = vumps_itr(rt, M, alg)
-    if alg.ifupdown && alg.ifdownfromup
-        Md = _down_M(M)
-        rtdown = vumps_itr(rtup, Md, alg)
-        return rtup, rtdown
-    else
-        return rtup
-    end
+    rt = vumps_itr(rt, M, alg)
+    return rt
 end
 
 function VUMPSEnv(rt::VUMPSRuntime, M::StructArray, alg::VUMPS)
     @unpack AL, AR, C, FL, FR = rt
     AC = ALCtoAC(AL, C)
-    _, FLo =  leftenv(AL, conj(AL), M, FL; ifobs = true, alg)
-    _, FRo = rightenv(AR, conj(AR), M, FR; ifobs = true, alg)
-    return VUMPSEnv(AC, AR, AC, AR, FL, FR, FLo, FRo)
+    return VUMPSEnv(AC, AR, AC, AR, FL, FR, FL, FR)
 end
 
 function leading_boundary(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M::StructArray, alg::VUMPS)
@@ -117,11 +122,7 @@ function leading_boundary(rt::Tuple{VUMPSRuntime, VUMPSRuntime}, M::StructArray,
     rtup = vumps_itr(rtup, M, alg)
 
     Md = _down_M(M)
-    if alg.ifdownfromup
-        rtdown = vumps_itr(rtup, Md, alg)
-    else
-        rtdown = vumps_itr(rtdown, Md, alg)
-    end
+    rtdown = vumps_itr(rtdown, Md, alg)
     return rtup, rtdown
 end
 

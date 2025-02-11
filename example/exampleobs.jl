@@ -25,8 +25,12 @@ function observable(env, model::MT, pattern::Matrix{Int}, type) where {MT <: Ham
 
     for p in 1:l
         i, j = Tuple(findfirst(==(p), M.pattern))
-        ir = Ni + 1 - i
-        # ir = mod1(i + 1, Ni)
+        # for i in 1:Ni, j in 1:Nj
+        if ACu.pattern == ACd.pattern
+            ir = mod1(i + 1, Ni)
+        else
+            ir = Ni + 1 - i
+        end
         obs = ein"(((adf,abc),dgeb),fgh),ceh -> "(FLo[i,j],ACu[i,j],M_obs[i,j],conj(ACd[ir,j]),FRo[i,j])
           λ = ein"(((adf,abc),dgeb),fgh),ceh -> "(FLo[i,j],ACu[i,j],    M[i,j],conj(ACd[ir,j]),FRo[i,j])
         obs_tol += Array(obs)[]/Array(λ)[]
